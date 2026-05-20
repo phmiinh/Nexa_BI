@@ -1,0 +1,5 @@
+[
+  { "brand": "Highlands Coffee", "posts": 96, "shareOfVoice": 41.5, "engagementRate": 5.8, "sentimentRatio": 72.3 },
+  { "brand": "Phuc Long", "posts": 84, "shareOfVoice": 32.2, "engagementRate": 5.2, "sentimentRatio": 74.1 },
+  { "brand": "The Coffee House", "posts": 78, "shareOfVoice": 26.3, "engagementRate": 4.7, "sentimentRatio": 69.4 }
+]

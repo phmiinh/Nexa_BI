@@ -1,0 +1,14 @@
+{
+  "status": "fallback",
+  "lastRunAt": "2026-05-20T16:17:29Z",
+  "source": "sample",
+  "processedPosts": 512,
+  "processedComments": 1438,
+  "qualityPassed": true,
+  "checks": [
+    { "name": "Duplicate natural keys", "status": "passed", "detail": "0 duplicates" },
+    { "name": "Metric ranges", "status": "passed", "detail": "All KPI values non-negative" },
+    { "name": "Sentiment labels", "status": "passed", "detail": "positive, neutral, negative only" },
+    { "name": "API availability", "status": "warning", "detail": "Using static JSON fallback" }
+  ]
+}

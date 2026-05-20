@@ -1,0 +1,6 @@
+[
+  { "contentType": "video", "posts": 42, "reach": 1250000, "engagementRate": 6.4, "viralityScore": 1.8 },
+  { "contentType": "image", "posts": 58, "reach": 980000, "engagementRate": 4.9, "viralityScore": 1.1 },
+  { "contentType": "text", "posts": 24, "reach": 310000, "engagementRate": 3.6, "viralityScore": 0.6 },
+  { "contentType": "short", "posts": 19, "reach": 740000, "engagementRate": 7.1, "viralityScore": 2.2 }
+]
