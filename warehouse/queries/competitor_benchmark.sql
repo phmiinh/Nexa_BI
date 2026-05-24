@@ -26,4 +26,4 @@ FROM fact_post fp
 JOIN dim_page pg ON pg.page_id = fp.page_id
 JOIN dim_platform p ON p.platform_id = fp.platform_id
 GROUP BY p.platform_name, pg.page_name, pg.is_competitor, pg.follower_count
-ORDER BY avg_engagement_rate DESC, total_engagement DESC;
+ORDER BY avg_engagement_rate DESC NULLS LAST, total_engagement DESC;

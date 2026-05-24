@@ -1,14 +1,36 @@
 {
-  "status": "fallback",
-  "lastRunAt": "2026-05-20T16:17:29Z",
-  "source": "sample",
-  "processedPosts": 512,
-  "processedComments": 1438,
+  "status": "success",
+  "lastRunAt": "2026-05-24T16:01:54+07:00",
+  "source": "warehouse",
+  "processedPosts": 65,
+  "processedComments": 15,
   "qualityPassed": true,
+  "freshness": {
+    "dataFrom": "2023-01-01",
+    "dataThrough": "2026-05-19",
+    "generatedAt": "2026-05-24T16:01:54+07:00",
+    "status": "fresh"
+  },
+  "sourceConfidence": {
+    "level": "high",
+    "score": 0.92,
+    "detail": "Warehouse and exports were refreshed from real YouTube API data with no sample fallback."
+  },
   "checks": [
-    { "name": "Duplicate natural keys", "status": "passed", "detail": "0 duplicates" },
-    { "name": "Metric ranges", "status": "passed", "detail": "All KPI values non-negative" },
-    { "name": "Sentiment labels", "status": "passed", "detail": "positive, neutral, negative only" },
-    { "name": "API availability", "status": "warning", "detail": "Using static JSON fallback" }
+    {
+      "name": "Platform scope",
+      "status": "passed",
+      "detail": "Processed data is YouTube-only."
+    },
+    {
+      "name": "Sample fallback",
+      "status": "passed",
+      "detail": "Final ETL used --no-sample-fallback."
+    },
+    {
+      "name": "Exports",
+      "status": "passed",
+      "detail": "Required dashboard export files are present."
+    }
   ]
 }

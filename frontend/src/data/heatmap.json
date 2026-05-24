@@ -1,11 +1,232 @@
 [
-  { "day": "Mon", "hour": "09", "engagementRate": 4.1 },
-  { "day": "Mon", "hour": "13", "engagementRate": 5.3 },
-  { "day": "Mon", "hour": "19", "engagementRate": 6.0 },
-  { "day": "Wed", "hour": "09", "engagementRate": 4.4 },
-  { "day": "Wed", "hour": "13", "engagementRate": 5.6 },
-  { "day": "Wed", "hour": "19", "engagementRate": 6.8 },
-  { "day": "Fri", "hour": "09", "engagementRate": 4.8 },
-  { "day": "Fri", "hour": "13", "engagementRate": 5.9 },
-  { "day": "Fri", "hour": "19", "engagementRate": 7.2 }
+  {
+    "day": "Sunday",
+    "hour": "14",
+    "engagementRate": 0.6301
+  },
+  {
+    "day": "Saturday",
+    "hour": "14",
+    "engagementRate": 0.4982
+  },
+  {
+    "day": "Sunday",
+    "hour": "17",
+    "engagementRate": 0.6054
+  },
+  {
+    "day": "Wednesday",
+    "hour": "12",
+    "engagementRate": 3.2765
+  },
+  {
+    "day": "Sunday",
+    "hour": "10",
+    "engagementRate": 0.176
+  },
+  {
+    "day": "Thursday",
+    "hour": "15",
+    "engagementRate": 0.9119
+  },
+  {
+    "day": "Sunday",
+    "hour": "16",
+    "engagementRate": 0.2525
+  },
+  {
+    "day": "Monday",
+    "hour": "19",
+    "engagementRate": 0.1743
+  },
+  {
+    "day": "Thursday",
+    "hour": "11",
+    "engagementRate": 0.2229
+  },
+  {
+    "day": "Tuesday",
+    "hour": "20",
+    "engagementRate": 0.8137
+  },
+  {
+    "day": "Friday",
+    "hour": "9",
+    "engagementRate": 0.5426
+  },
+  {
+    "day": "Thursday",
+    "hour": "14",
+    "engagementRate": 0.0
+  },
+  {
+    "day": "Wednesday",
+    "hour": "18",
+    "engagementRate": 0.6501
+  },
+  {
+    "day": "Tuesday",
+    "hour": "16",
+    "engagementRate": 0.2703
+  },
+  {
+    "day": "Tuesday",
+    "hour": "21",
+    "engagementRate": 0.319
+  },
+  {
+    "day": "Friday",
+    "hour": "20",
+    "engagementRate": 0.3293
+  },
+  {
+    "day": "Friday",
+    "hour": "19",
+    "engagementRate": 1.6234
+  },
+  {
+    "day": "Tuesday",
+    "hour": "23",
+    "engagementRate": 0.4202
+  },
+  {
+    "day": "Monday",
+    "hour": "18",
+    "engagementRate": 0.8969
+  },
+  {
+    "day": "Friday",
+    "hour": "16",
+    "engagementRate": 0.9464
+  },
+  {
+    "day": "Tuesday",
+    "hour": "8",
+    "engagementRate": 1.1904
+  },
+  {
+    "day": "Sunday",
+    "hour": "11",
+    "engagementRate": 0.6302
+  },
+  {
+    "day": "Thursday",
+    "hour": "9",
+    "engagementRate": 0.0058
+  },
+  {
+    "day": "Sunday",
+    "hour": "20",
+    "engagementRate": 0.3338
+  },
+  {
+    "day": "Wednesday",
+    "hour": "8",
+    "engagementRate": 0.4416
+  },
+  {
+    "day": "Friday",
+    "hour": "22",
+    "engagementRate": 1.2273
+  },
+  {
+    "day": "Tuesday",
+    "hour": "15",
+    "engagementRate": 0.8798
+  },
+  {
+    "day": "Friday",
+    "hour": "14",
+    "engagementRate": 0.4052
+  },
+  {
+    "day": "Thursday",
+    "hour": "12",
+    "engagementRate": 0.8431
+  },
+  {
+    "day": "Sunday",
+    "hour": "15",
+    "engagementRate": 0.9836
+  },
+  {
+    "day": "Thursday",
+    "hour": "19",
+    "engagementRate": 1.6611
+  },
+  {
+    "day": "Tuesday",
+    "hour": "14",
+    "engagementRate": 1.4843
+  },
+  {
+    "day": "Saturday",
+    "hour": "9",
+    "engagementRate": 0.0
+  },
+  {
+    "day": "Friday",
+    "hour": "11",
+    "engagementRate": 0.9799
+  },
+  {
+    "day": "Tuesday",
+    "hour": "17",
+    "engagementRate": 0.2092
+  },
+  {
+    "day": "Wednesday",
+    "hour": "19",
+    "engagementRate": 1.2382
+  },
+  {
+    "day": "Tuesday",
+    "hour": "13",
+    "engagementRate": 1.4706
+  },
+  {
+    "day": "Saturday",
+    "hour": "15",
+    "engagementRate": 0.7266
+  },
+  {
+    "day": "Sunday",
+    "hour": "3",
+    "engagementRate": 0.0
+  },
+  {
+    "day": "Thursday",
+    "hour": "13",
+    "engagementRate": 0.0
+  },
+  {
+    "day": "Saturday",
+    "hour": "22",
+    "engagementRate": 1.9496
+  },
+  {
+    "day": "Sunday",
+    "hour": "13",
+    "engagementRate": 1.1889
+  },
+  {
+    "day": "Sunday",
+    "hour": "8",
+    "engagementRate": 0.0007
+  },
+  {
+    "day": "Saturday",
+    "hour": "5",
+    "engagementRate": 2.1739
+  },
+  {
+    "day": "Thursday",
+    "hour": "10",
+    "engagementRate": 1.6648
+  },
+  {
+    "day": "Tuesday",
+    "hour": "18",
+    "engagementRate": 1.7751
+  }
 ]

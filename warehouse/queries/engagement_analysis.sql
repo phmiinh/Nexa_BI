@@ -11,7 +11,7 @@ SELECT
 FROM vw_post_performance
 WHERE is_competitor = false
 GROUP BY platform_name, content_type
-ORDER BY avg_engagement_rate DESC, total_engagement DESC;
+ORDER BY avg_engagement_rate DESC NULLS LAST, total_engagement DESC;
 
 SELECT
     full_date,

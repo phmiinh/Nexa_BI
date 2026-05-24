@@ -2,18 +2,23 @@ import competitorsFallback from "@/data/competitors.json";
 import contentFallback from "@/data/content-performance.json";
 import engagementFallback from "@/data/engagement.json";
 import heatmapFallback from "@/data/heatmap.json";
+import insightsFallback from "@/data/insights.json";
 import overviewFallback from "@/data/overview.json";
 import postsFallback from "@/data/posts.json";
 import sentimentFallback from "@/data/sentiment.json";
 import syncStatusFallback from "@/data/sync-status.json";
 import type {
+  BIInsights,
   Competitor,
   ContentPerformance,
+  DataFreshness,
   EngagementPoint,
   HeatmapCell,
+  InsightItem,
   Overview,
   Post,
   SentimentPoint,
+  SourceConfidence,
   SyncStatus
 } from "@/lib/types";
 
@@ -63,6 +68,28 @@ function numberValue(value: unknown): number {
 
 function stringValue(value: unknown): string {
   return String(value ?? "");
+}
+
+function sourceConfidenceValue(value: unknown, fallbackSource: string): SourceConfidence {
+  const record = asRecord(value);
+  const level = stringValue(record.level || "medium");
+  return {
+    level: level === "high" || level === "low" ? level : "medium",
+    score: numberValue(record.score || 0.7),
+    detail: stringValue(record.detail || record.reason || `Loaded from ${fallbackSource}`)
+  };
+}
+
+function freshnessValue(value: unknown, generatedAt: string): DataFreshness {
+  const record = asRecord(value);
+  const status = stringValue(record.status || "unknown");
+  return {
+    dataFrom: record.dataFrom ? stringValue(record.dataFrom) : undefined,
+    dataThrough: stringValue(record.dataThrough || record.data_through || generatedAt),
+    generatedAt: stringValue(record.generatedAt || record.generated_at || generatedAt),
+    ageHours: record.ageHours || record.age_hours ? numberValue(record.ageHours || record.age_hours) : undefined,
+    status: status === "fresh" || status === "stale" ? status : "unknown"
+  };
 }
 
 function percentText(value: unknown): string {
@@ -182,15 +209,26 @@ function normalizeHeatmap(payload: unknown): HeatmapCell[] {
 function normalizeSyncStatus(payload: unknown): SyncStatus {
   const record = asRecord(payload);
   if (Array.isArray(record.checks)) {
-    return record as SyncStatus;
+    const syncStatus = record as SyncStatus;
+    return {
+      ...syncStatus,
+      freshness: syncStatus.freshness || freshnessValue(record.freshness, syncStatus.lastRunAt),
+      sourceConfidence:
+        syncStatus.sourceConfidence || sourceConfidenceValue(record.sourceConfidence, syncStatus.source)
+    };
   }
+  const lastRunAt = stringValue(record.finished_at ?? record.posts_modified_at ?? "n/a");
+  const source = stringValue(record.source ?? record.source_type ?? "processed_csv");
+  const counts = asRecord(record.counts);
   return {
     status: stringValue(record.status || "available"),
-    lastRunAt: stringValue(record.finished_at ?? record.posts_modified_at ?? "n/a"),
-    source: stringValue(record.source ?? record.source_type ?? "processed_csv"),
-    processedPosts: numberValue(record.loaded_posts),
-    processedComments: numberValue(record.loaded_comments),
+    lastRunAt,
+    source,
+    processedPosts: numberValue(counts.posts ?? record.loaded_posts),
+    processedComments: numberValue(counts.comments ?? record.loaded_comments),
     qualityPassed: record.status !== "missing",
+    freshness: freshnessValue(record.freshness, lastRunAt),
+    sourceConfidence: sourceConfidenceValue(record.sourceConfidence || record.source_confidence, source),
     checks: [
       {
         name: "Data source",
@@ -198,6 +236,42 @@ function normalizeSyncStatus(payload: unknown): SyncStatus {
         detail: stringValue(record.source ?? record.posts_path ?? "processed data")
       }
     ]
+  };
+}
+
+function normalizeInsightItems(value: unknown): InsightItem[] {
+  return asArray(value).map((item) => ({
+    title: stringValue(item.title),
+    detail: stringValue(item.detail),
+    metric: item.metric ? stringValue(item.metric) : undefined,
+    tone:
+      item.tone === "positive" || item.tone === "warning" || item.tone === "neutral"
+        ? item.tone
+        : "neutral"
+  }));
+}
+
+function normalizeInsights(payload: unknown): BIInsights {
+  const record = asRecord(asRecord(payload).result || payload);
+  const generatedAt = stringValue(record.generatedAt || record.generated_at || new Date().toISOString());
+  const source = stringValue(record.source || "api");
+  const apiInsights = asArray(record.insights);
+  const apiHighlights = apiInsights.map((item) => ({
+    title: stringValue(item.title),
+    detail: stringValue(item.message || item.detail),
+    metric: item.type ? stringValue(item.type) : undefined,
+    tone: "neutral" as const
+  }));
+  return {
+    generatedAt,
+    source,
+    sourceConfidence: sourceConfidenceValue(record.sourceConfidence || record.source_confidence, source),
+    freshness: freshnessValue(record.freshness, generatedAt),
+    highlights: apiHighlights.length ? apiHighlights : normalizeInsightItems(record.highlights),
+    risks: normalizeInsightItems(record.risks),
+    recommendations: Array.isArray(record.recommendations)
+      ? record.recommendations.map((recommendation) => stringValue(recommendation))
+      : []
   };
 }
 
@@ -251,4 +325,8 @@ export function getHeatmap(): Promise<HeatmapCell[]> {
 
 export function getSyncStatus(): Promise<SyncStatus> {
   return fetchApi("/api/v1/sync/status/", syncStatusFallback as SyncStatus, normalizeSyncStatus);
+}
+
+export function getInsights(): Promise<BIInsights> {
+  return fetchApi("/api/v1/analytics/insights/", insightsFallback as BIInsights, normalizeInsights);
 }

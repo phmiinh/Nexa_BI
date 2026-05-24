@@ -1,34 +1,34 @@
 {
-  "dateRange": "2026-05-01 to 2026-05-20",
+  "dateRange": "2023-01-01 to 2026-05-19",
   "kpis": [
     {
-      "label": "Engagement count",
-      "value": "428.6K",
-      "delta": "+12.4%",
+      "label": "Total engagement",
+      "value": "1.2K",
+      "delta": "SQL validated",
       "tone": "positive"
     },
     {
       "label": "Engagement rate",
-      "value": "5.8%",
-      "delta": "+0.7 pp",
-      "tone": "positive"
+      "value": "0.7%",
+      "delta": "avg",
+      "tone": "neutral"
     },
     {
-      "label": "Sentiment ratio",
-      "value": "72.3%",
-      "delta": "-2.1 pp",
-      "tone": "warning"
+      "label": "Virality score",
+      "value": "0.0%",
+      "delta": "avg",
+      "tone": "neutral"
     },
     {
-      "label": "Share of voice",
-      "value": "41.5%",
-      "delta": "+3.2 pp",
+      "label": "Total reach",
+      "value": "6.2M",
+      "delta": "warehouse",
       "tone": "positive"
     }
   ],
   "finding": {
-    "title": "Video product launches are carrying the month",
-    "body": "Highlands Coffee leads share of voice while Facebook video posts deliver the strongest engagement rate.",
-    "action": "Prioritize short product videos during evening posting windows and monitor negative delivery comments."
+    "title": "YouTube BI baseline is refreshed",
+    "body": "Warehouse currently contains 65 YouTube videos and 6.2M reach.",
+    "action": "Use these validated metrics as the baseline for Power BI and final class presentation."
   }
 }

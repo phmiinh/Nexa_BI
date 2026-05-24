@@ -26,10 +26,10 @@ psql "$DATABASE_URL" -f warehouse/schema/003_views.sql
 | Field | Rule |
 | --- | --- |
 | Timestamps | Convert source timestamps to reporting timezone before deriving `dim_time`; store exact timestamp in `full_timestamp`. |
-| Platform | Lowercase and map to seeded values: `facebook`, `instagram`, `tiktok`, `youtube`. |
-| Content type | Lowercase and map to `dim_content_type`; unknown formats should be reviewed before insert. |
+| Platform | MVP real source is `youtube`; other seeded platform values are retained only for future extension/sample compatibility. |
+| Content type | Lowercase and map to `dim_content_type`; YouTube sample data uses `video`, `reel`/short, and `livestream`. Unknown formats should be reviewed before insert. |
 | Metrics | Missing counts become 0 only when source field is absent and the API semantics allow it. |
-| Engagement rate | Do not load directly; PostgreSQL generates it from reach and engagement counts. |
+| Engagement rate | Do not load directly; PostgreSQL generates it from reach and engagement counts. The generated value is `NULL` when reach is 0. |
 | Sentiment label | Must be one of `positive`, `neutral`, `negative`. |
 | Sentiment score | Clamp or reject values outside -1.0 to 1.0. |
 
@@ -51,7 +51,7 @@ INSERT INTO social_dw.dim_time (
     is_weekend
 )
 SELECT
-    to_char(ts, 'YYYYMMDDHH24')::integer,
+    to_char(ts, 'YYYYMMDDHH24MISS')::bigint,
     ts::date,
     ts,
     extract(hour from ts)::smallint,

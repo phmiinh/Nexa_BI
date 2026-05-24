@@ -91,5 +91,10 @@ def analytics_competitors(_: HttpRequest) -> JsonResponse:
 
 
 @require_GET
+def analytics_insights(_: HttpRequest) -> JsonResponse:
+    return ok(Repository().insights())
+
+
+@require_GET
 def sync_status(_: HttpRequest) -> JsonResponse:
     return ok(Repository().sync_status())

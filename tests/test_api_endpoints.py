@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+os.environ["DATABASE_URL"] = ""
+os.environ["SOCIALENS_DATABASE_URL"] = ""
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.sociallens_api.settings")
 
 import django
@@ -51,6 +53,7 @@ def test_posts_list_and_detail_use_processed_fallback(client: Client):
         "/api/v1/analytics/content-performance/",
         "/api/v1/analytics/heatmap/",
         "/api/v1/analytics/competitors/",
+        "/api/v1/analytics/insights/",
         "/api/v1/sync/status/",
     ],
 )
@@ -60,3 +63,26 @@ def test_analytics_endpoints_return_json(client: Client, path: str):
     assert response.status_code == 200
     assert response["Content-Type"].startswith("application/json")
     assert response.json()
+
+
+def test_insights_endpoint_returns_deterministic_vietnamese_messages(client: Client):
+    response = client.get("/api/v1/analytics/insights/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source"] == "csv"
+    assert len(payload["insights"]) >= 3
+    assert {"type", "title", "message"}.issubset(payload["insights"][0])
+    assert any("tương tác" in insight["message"] for insight in payload["insights"])
+
+
+def test_sync_status_includes_current_counts_platforms_and_confidence(client: Client):
+    response = client.get("/api/v1/sync/status/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["source_type"] == "csv"
+    assert payload["counts"]["posts"] > 0
+    assert payload["counts"]["comments"] > 0
+    assert payload["platforms"] == ["youtube"]
+    assert payload["source_confidence"]["level"] == "medium"

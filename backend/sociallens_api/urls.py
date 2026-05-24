@@ -15,5 +15,6 @@ urlpatterns = [
     path("api/v1/analytics/content-performance/", views.analytics_content_performance),
     path("api/v1/analytics/heatmap/", views.analytics_heatmap),
     path("api/v1/analytics/competitors/", views.analytics_competitors),
+    path("api/v1/analytics/insights/", views.analytics_insights),
     path("api/v1/sync/status/", views.sync_status),
 ]

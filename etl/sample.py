@@ -1,4 +1,4 @@
-"""Deterministic sample fallback data for local demos and tests."""
+"""Deterministic YouTube/F&B sample data for local development and tests."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ PAGES = [
     ("the_coffee_house", "The Coffee House", True, 1500000),
 ]
 
-PLATFORMS = ["facebook", "youtube"]
-CONTENT_TYPES = ["image", "video", "text", "reel"]
+PLATFORMS = ["youtube"]
+CONTENT_TYPES = ["video", "short", "livestream"]
 POSITIVE_COMMENTS = [
     "Ca phe ngon, minh rat thich uu dai nay",
     "Video hay va noi dung huu ich",

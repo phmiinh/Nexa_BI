@@ -200,6 +200,31 @@ a {
   margin: 0;
 }
 
+.insight-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.insight-item {
+  border-left: 3px solid var(--accent);
+  display: grid;
+  gap: 4px;
+  padding-left: 10px;
+}
+
+.source-meta {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 750;
+  gap: 8px 16px;
+  margin-top: 6px;
+  padding-top: 12px;
+}
+
 .bar-chart {
   display: grid;
   gap: 12px;
@@ -305,6 +330,11 @@ tbody tr:last-child td {
   padding: 12px;
 }
 
+.status-item div {
+  display: grid;
+  gap: 3px;
+}
+
 .status-item strong {
   font-size: 14px;
 }
@@ -334,6 +364,47 @@ tbody tr:last-child td {
 .badge-failed {
   background: #fed7d7;
   color: var(--danger);
+}
+
+.badge-fresh {
+  background: #d8f3ed;
+  color: var(--accent-strong);
+}
+
+.badge-stale,
+.badge-unknown {
+  background: #fef3c7;
+  color: var(--amber);
+}
+
+.health-grid {
+  margin-bottom: 16px;
+}
+
+.metric-list {
+  display: grid;
+  gap: 12px;
+}
+
+.metric-list div {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.metric-list span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.metric-list strong {
+  font-size: 16px;
+  text-align: right;
 }
 
 @media (max-width: 900px) {

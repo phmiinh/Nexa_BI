@@ -17,7 +17,7 @@ SELECT
     left(caption, 240) AS caption_preview
 FROM vw_post_performance
 WHERE reach >= 100
-ORDER BY virality_score DESC, engagement_rate DESC, shares DESC
+ORDER BY virality_score DESC NULLS LAST, engagement_rate DESC NULLS LAST, shares DESC
 LIMIT 25;
 
 SELECT

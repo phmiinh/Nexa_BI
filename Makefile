@@ -1,7 +1,11 @@
-PYTHON ?= python
-DATABASE_URL ?= postgresql+psycopg://sociallens:sociallens_dev@localhost:5432/sociallens_bi
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
 
-.PHONY: setup up down db etl load test lint format demo quality export api-check api frontend-build
+PYTHON ?= python
+
+.PHONY: setup up down db require-database-url require-youtube-api-key etl load test lint format demo demo-local quality export api-check api frontend frontend-build
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -17,16 +21,22 @@ down:
 db:
 	docker compose up -d db
 
-etl:
-	$(PYTHON) -m etl.cli run --sources facebook,youtube,sample --database-url "$(DATABASE_URL)"
+require-database-url:
+	$(PYTHON) -c "import os, sys; sys.exit(0 if os.getenv('DATABASE_URL') else 'DATABASE_URL is required. Copy .env.example to .env and set DATABASE_URL')"
 
-load:
+require-youtube-api-key:
+	$(PYTHON) -c "import os, sys; sys.exit(0 if os.getenv('YOUTUBE_API_KEY') else 'YOUTUBE_API_KEY is required for real YouTube ETL. Set it in .env or use explicit sample/dev commands.')"
+
+etl: require-database-url require-youtube-api-key
+	$(PYTHON) -m etl.cli run --sources youtube --no-sample-fallback --database-url "$(DATABASE_URL)"
+
+load: require-database-url
 	$(PYTHON) -m etl.cli load --database-url "$(DATABASE_URL)"
 
-quality:
+quality: require-database-url
 	$(PYTHON) -m etl.cli quality --database-url "$(DATABASE_URL)"
 
-export:
+export: require-database-url
 	$(PYTHON) -m etl.cli export --database-url "$(DATABASE_URL)"
 
 test:
@@ -37,6 +47,9 @@ api-check:
 
 api:
 	$(PYTHON) backend/manage.py runserver 0.0.0.0:8000
+
+frontend:
+	cd frontend && npm run dev
 
 frontend-build:
 	cd frontend && npm run build
@@ -49,7 +62,9 @@ format:
 	$(PYTHON) -m black .
 	$(PYTHON) -m ruff check --fix .
 
-demo: db
-	$(PYTHON) -m etl.cli run --sources facebook,youtube,sample --database-url "$(DATABASE_URL)"
+demo: require-database-url require-youtube-api-key
+	$(PYTHON) -m etl.cli run --sources youtube --no-sample-fallback --database-url "$(DATABASE_URL)"
 	$(PYTHON) -m etl.cli quality --database-url "$(DATABASE_URL)"
 	$(PYTHON) -m etl.cli export --database-url "$(DATABASE_URL)"
+
+demo-local: db demo

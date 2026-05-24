@@ -1,12 +1,14 @@
-# SocialLens BI Run Guide
+# SocialLens BI Final Run Guide
 
-This guide describes how to run the project in its current MVP state.
+This guide is the final technical delivery runbook for SocialLens BI.
 
-Current status:
+Final delivery status:
 
-- ETL, sample fallback, quality checks, warehouse SQL, Django API, and Next.js dashboard are implemented.
-- Power BI `.pbix` and final dashboard screenshots are still manual deliverables.
-- PostgreSQL demo requires Docker Desktop to be running.
+- ETL uses real YouTube data only for demo and warehouse runs.
+- Sample fallback is disabled with `--no-sample-fallback` for final ETL.
+- Remote PostgreSQL is the preferred warehouse path.
+- Dashboard exports are generated from PostgreSQL views into `dashboard/exports/`.
+- Power BI is the primary BI dashboard deliverable; the Next.js dashboard is the companion web dashboard.
 
 ## 1. Prerequisites
 
@@ -14,21 +16,22 @@ Required:
 
 - Python 3.10+; Python 3.12 is preferred.
 - Node.js 20+ for the Next.js dashboard.
-- Docker Desktop for PostgreSQL warehouse demo.
+- Access to the remote PostgreSQL database.
+- A valid `YOUTUBE_API_KEY`.
 
 Optional:
 
-- Facebook Graph API token.
-- YouTube Data API key.
 - Power BI Desktop.
+- Docker Desktop for local PostgreSQL only.
+- `make`. If unavailable on Windows, use the PowerShell commands in this guide.
 
-## 2. Setup
+## 2. Environment Setup
 
 From the repo root:
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
 ```
@@ -41,49 +44,115 @@ npm install
 cd ..
 ```
 
-Create local environment file:
+Create a local environment file:
 
 ```powershell
 copy .env.example .env
 ```
 
-Real API credentials are optional. If credentials are missing, ETL falls back to sample data.
+Set the final remote PostgreSQL and YouTube values in `.env`:
 
-## 3. Quick Run Without Docker
-
-This path is enough to verify the current MVP without PostgreSQL.
-
-Run sample ETL:
-
-```powershell
-python -m etl.cli run --sources sample --output-dir data\processed
+```env
+POSTGRES_HOST=172.16.4.81
+POSTGRES_PORT=5432
+POSTGRES_DB=nexabi
+POSTGRES_USER=next
+POSTGRES_PASSWORD=...
+DATABASE_URL=postgresql+psycopg://next:...@172.16.4.81:5432/nexabi
+SOCIALENS_DATABASE_URL=postgresql+psycopg://next:...@172.16.4.81:5432/nexabi
+YOUTUBE_API_KEY=...
+YOUTUBE_CHANNEL_IDS=UCHEqa2uTf8uXrGWrnU3ThgA,UCq6WR0wWNUuz53c4zeWSa8g
+YOUTUBE_QUERIES=The Coffee House Vietnam
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-Run data quality checks:
+Do not commit `.env` or secrets.
+
+## 3. Load `.env` in PowerShell
+
+Use this once per PowerShell session before running manual commands:
 
 ```powershell
-python -m etl.cli quality --input-dir data\processed
+Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } | ForEach-Object {
+  $name, $value = $_ -split '=', 2
+  Set-Item -Path "Env:$name" -Value $value
+}
 ```
 
-Run tests:
+Confirm required values are present:
+
+```powershell
+$env:DATABASE_URL
+$env:YOUTUBE_API_KEY
+```
+
+## 4. Final ETL, Quality, and Export Run
+
+Use this PowerShell sequence for the final technical delivery:
+
+```powershell
+python -m etl.cli run --sources youtube --no-sample-fallback --database-url $env:DATABASE_URL
+python -m etl.cli quality --database-url $env:DATABASE_URL
+python -m etl.cli export --database-url $env:DATABASE_URL
+```
+
+Expected result:
+
+- ETL fails if `YOUTUBE_API_KEY` is missing or the live YouTube request cannot produce data.
+- Warehouse tables and views are created in PostgreSQL schema `social_dw`.
+- CSV and JSON dashboard exports are written to `dashboard/exports/`.
+
+Export files:
+
+- `dashboard/exports/vw_executive_overview.csv`
+- `dashboard/exports/vw_daily_engagement.csv`
+- `dashboard/exports/vw_sentiment_trend.csv`
+- `dashboard/exports/vw_content_performance.csv`
+- `dashboard/exports/vw_competitor_benchmark.csv`
+- `dashboard/exports/vw_posting_time_heatmap.csv`
+- `dashboard/exports/vw_viral_posts.csv`
+
+If `make` is available, the equivalent shortcut is:
+
+```powershell
+make demo
+```
+
+Individual targets are:
+
+```powershell
+make etl
+make quality
+make export
+```
+
+## 5. Validation Commands
+
+Run these checks before recording the final demo:
 
 ```powershell
 python -m pytest -q
-```
-
-Check Django API:
-
-```powershell
 python backend\manage.py check
+cd frontend
+npm run build
+cd ..
 ```
 
-Run Django API:
+If Power BI numbers need SQL confirmation, query the remote warehouse views under `social_dw`.
+
+## 6. API Server
+
+Start Django after loading `.env`:
 
 ```powershell
 python backend\manage.py runserver 0.0.0.0:8000
 ```
 
-API endpoints include:
+Final API base URL:
+
+- `http://localhost:8000`
+
+Useful endpoints:
 
 - `http://localhost:8000/health/`
 - `http://localhost:8000/api/v1/posts/`
@@ -96,7 +165,9 @@ API endpoints include:
 - `http://localhost:8000/api/v1/analytics/competitors/`
 - `http://localhost:8000/api/v1/sync/status/`
 
-Run Next.js dashboard:
+## 7. Next.js Dashboard
+
+Start the dashboard in a second PowerShell session:
 
 ```powershell
 cd frontend
@@ -104,145 +175,70 @@ $env:NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
 npm run dev
 ```
 
-Open:
+Final dashboard URL:
 
 - `http://localhost:3000/dashboard`
+
+Additional verified routes:
+
 - `http://localhost:3000/content`
 - `http://localhost:3000/sentiment`
 - `http://localhost:3000/competitors`
 - `http://localhost:3000/posts`
 - `http://localhost:3000/data-health`
 
-If `NEXT_PUBLIC_API_BASE_URL` is not set or the API is down, the frontend uses static fallback JSON.
+The frontend has static fallback JSON for development, but the final delivery should be demonstrated with the Django API running against the remote PostgreSQL warehouse.
 
-## 4. Full Warehouse Run With Docker
+## 8. Power BI Build
 
-Start Docker Desktop first.
-
-Start PostgreSQL:
-
-```powershell
-docker compose up -d db
-```
-
-Run the full demo:
-
-```powershell
-make demo
-```
-
-Equivalent manual commands:
-
-```powershell
-python -m etl.cli run --sources facebook,youtube,sample --database-url "postgresql+psycopg://sociallens:sociallens_dev@localhost:5432/sociallens_bi"
-python -m etl.cli quality --database-url "postgresql+psycopg://sociallens:sociallens_dev@localhost:5432/sociallens_bi"
-python -m etl.cli export --database-url "postgresql+psycopg://sociallens:sociallens_dev@localhost:5432/sociallens_bi"
-```
-
-The warehouse schema is created automatically by the ETL loader from:
-
-- `warehouse/schema/001_schema.sql`
-- `warehouse/schema/002_indexes.sql`
-- `warehouse/schema/003_views.sql`
-
-Dashboard exports are written to:
-
-- `dashboard/exports/`
-
-## 5. Real API Run
-
-Edit `.env`:
-
-```env
-FACEBOOK_ACCESS_TOKEN=...
-FACEBOOK_PAGE_IDS=...
-YOUTUBE_API_KEY=...
-YOUTUBE_CHANNEL_IDS=...
-YOUTUBE_QUERIES=
-```
-
-Run:
-
-```powershell
-python -m etl.cli run --sources facebook,youtube,sample --output-dir data\processed
-```
-
-If Facebook or YouTube credentials are missing or API calls fail, sample fallback keeps the demo runnable.
-
-## 6. Frontend Build
-
-```powershell
-cd frontend
-npm run build
-```
-
-The current verified routes are:
-
-- `/`
-- `/dashboard`
-- `/content`
-- `/sentiment`
-- `/competitors`
-- `/posts`
-- `/data-health`
-
-## 7. Power BI
-
-Power BI is the primary dashboard deliverable for the BI assignment.
+Power BI is the primary dashboard artifact for submission.
 
 Preferred source:
 
-- PostgreSQL schema `social_dw`
-- Views:
-  - `vw_executive_overview`
-  - `vw_daily_engagement`
-  - `vw_sentiment_trend`
-  - `vw_content_performance`
-  - `vw_competitor_benchmark`
-  - `vw_posting_time_heatmap`
-  - `vw_viral_posts`
+- PostgreSQL host from `.env`
+- Database `nexabi`
+- Schema `social_dw`
+- Views documented in `dashboard/power_bi/README.md`
 
-Fallback source:
+Backup source:
 
-- CSV files in `dashboard/exports/`
-- Processed CSV files in `data/processed/`
+- CSV exports in `dashboard/exports/`
 
-Power BI page plan is documented in:
+Expected Power BI artifact:
 
-- `dashboard/power_bi/README.md`
+- Save the `.pbix` file in `dashboard/power_bi/`.
+- Capture final dashboard screenshots in `dashboard/screenshots/`.
 
-## 8. Useful Commands
+## 9. Local Sample Path
+
+Use this only for development or tests without PostgreSQL and without external API calls:
 
 ```powershell
-python -m pytest -q
-python backend\manage.py check
 python -m etl.cli run --sources sample --output-dir data\processed
 python -m etl.cli quality --input-dir data\processed
-cd frontend; npm run build
 ```
 
-Makefile shortcuts:
+Do not use sample output for the final technical delivery.
+
+## 10. Local Docker PostgreSQL
+
+Remote PostgreSQL is the final delivery path. Local Docker is optional for development:
 
 ```powershell
-make setup
-make db
-make etl
-make quality
-make export
-make test
-make api-check
-make frontend-build
-make demo
+docker compose up -d db
+python -m etl.cli run --sources youtube --no-sample-fallback --database-url $env:DATABASE_URL
+python -m etl.cli quality --database-url $env:DATABASE_URL
+python -m etl.cli export --database-url $env:DATABASE_URL
 ```
 
-On Windows, if `make` is unavailable, use the manual commands shown above.
+## 11. Final Evidence
 
-## 9. Known Current Limitation
+Collect these before submission:
 
-`docker compose up -d db` was not verified in the current environment because Docker Desktop was not running. The rest of the MVP was verified with:
-
-- `python -m pytest -q` -> 19 passed
-- `python backend\manage.py check` -> passed
-- `python -m etl.cli run --sources sample --output-dir data\processed` -> passed
-- `python -m etl.cli quality --input-dir data\processed` -> passed
-- `cd frontend && npm run build` -> passed
+- Terminal output showing successful real YouTube ETL with `--no-sample-fallback`.
+- Terminal output showing successful quality checks.
+- `dashboard/exports/` CSV files refreshed from the remote warehouse.
+- Power BI `.pbix` saved under `dashboard/power_bi/`.
+- Screenshots saved under `dashboard/screenshots/`.
+- API URL and dashboard URL listed in the final report.
+- Final checklist completed in `docs/Final_Checklist.md`.

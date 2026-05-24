@@ -19,7 +19,7 @@ SELECT
     post_count,
     dense_rank() OVER (
         PARTITION BY platform_name
-        ORDER BY avg_engagement_rate DESC, total_engagement DESC
+        ORDER BY avg_engagement_rate DESC NULLS LAST, total_engagement DESC
     ) AS time_slot_rank
 FROM vw_best_posting_heatmap
 WHERE post_count >= 3

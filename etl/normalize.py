@@ -69,7 +69,7 @@ def _timestamp(value: Any) -> pd.Timestamp:
 
 def _content_type(row: dict[str, Any]) -> str:
     raw = str(_first_present(row, "content_type", "type", "media_type", default="")).lower()
-    if raw in {"video", "image", "story", "reel", "text", "short"}:
+    if raw in {"video", "image", "story", "reel", "text", "short", "livestream"}:
         return "reel" if raw == "short" else raw
     if _first_present(row, "video_id", "youtube_id"):
         return "video"
@@ -89,8 +89,8 @@ def normalize_posts(raw_posts: list[dict[str, Any]]) -> pd.DataFrame:
         likes = _as_int(_first_present(raw, "likes", "like_count"))
         comments_count = _as_int(_first_present(raw, "comments_count", "comments", "comment_count"))
         shares = _as_int(_first_present(raw, "shares", "share_count"))
-        engagement_rate = round((likes + comments_count + shares) / reach * 100, 4) if reach else 0.0
-        virality_score = round(shares / reach * 100, 4) if reach else 0.0
+        engagement_rate = round((likes + comments_count + shares) / reach * 100, 4) if reach else None
+        virality_score = round(shares / reach * 100, 4) if reach else None
 
         rows.append(
             {

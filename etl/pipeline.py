@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import requests
+
 from etl.extractors import ExtractError, extract_facebook, extract_json, extract_sample, extract_youtube
 from etl.load import load_csv, load_sql
 from etl.normalize import normalize_dataset
@@ -54,7 +56,7 @@ def extract_source(source: str, **kwargs: Any) -> tuple[dict[str, list[dict[str,
                 query=kwargs.get("query"),
                 limit=kwargs.get("limit", 25),
             ), False
-    except (ExtractError, KeyError):
+    except (ExtractError, KeyError, requests.RequestException):
         if kwargs.get("sample_fallback", True):
             return extract_sample(), True
         raise
@@ -68,7 +70,7 @@ def run_pipeline(
     fail_on_quality_error: bool = True,
     **extract_kwargs: Any,
 ) -> PipelineResult:
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     raw, used_fallback = extract_source(source, **extract_kwargs)
     actual_source = "sample" if used_fallback else source
     raw_outputs = write_raw_jsonl(raw, actual_source, run_id)

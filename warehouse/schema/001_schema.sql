@@ -68,10 +68,10 @@ CREATE TABLE IF NOT EXISTS fact_post (
     saves bigint NOT NULL DEFAULT 0 CHECK (saves >= 0),
     engagement_count bigint GENERATED ALWAYS AS (likes + comments + shares + saves) STORED,
     engagement_rate numeric(9,4) GENERATED ALWAYS AS (
-        CASE WHEN reach > 0 THEN round(((likes + comments + shares + saves)::numeric / reach::numeric) * 100, 4) ELSE 0 END
+        CASE WHEN reach > 0 THEN round(((likes + comments + shares + saves)::numeric / reach::numeric) * 100, 4) ELSE NULL END
     ) STORED,
     virality_score numeric(9,4) GENERATED ALWAYS AS (
-        CASE WHEN reach > 0 THEN round((shares::numeric / reach::numeric) * 100, 4) ELSE 0 END
+        CASE WHEN reach > 0 THEN round((shares::numeric / reach::numeric) * 100, 4) ELSE NULL END
     ) STORED,
     loaded_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT fact_post_unique_source UNIQUE (platform_id, external_post_id)

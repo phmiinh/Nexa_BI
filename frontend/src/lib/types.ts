@@ -17,6 +17,37 @@ export type Overview = {
   };
 };
 
+export type SourceConfidence = {
+  level: "high" | "medium" | "low";
+  score: number;
+  detail: string;
+};
+
+export type DataFreshness = {
+  dataFrom?: string;
+  dataThrough: string;
+  generatedAt: string;
+  ageHours?: number;
+  status: "fresh" | "stale" | "unknown";
+};
+
+export type InsightItem = {
+  title: string;
+  detail: string;
+  metric?: string;
+  tone: Tone;
+};
+
+export type BIInsights = {
+  generatedAt: string;
+  source: string;
+  sourceConfidence: SourceConfidence;
+  freshness: DataFreshness;
+  highlights: InsightItem[];
+  risks: InsightItem[];
+  recommendations: string[];
+};
+
 export type EngagementPoint = {
   date: string;
   engagementRate: number;
@@ -73,6 +104,8 @@ export type SyncStatus = {
   processedPosts: number;
   processedComments: number;
   qualityPassed: boolean;
+  freshness: DataFreshness;
+  sourceConfidence: SourceConfidence;
   checks: Array<{
     name: string;
     status: "passed" | "warning" | "failed";

@@ -12,7 +12,7 @@ SELECT
 FROM vw_post_performance
 WHERE is_competitor = false
 GROUP BY content_type, content_category
-ORDER BY avg_engagement_rate DESC, post_count DESC;
+ORDER BY avg_engagement_rate DESC NULLS LAST, post_count DESC;
 
 SELECT
     platform_name,

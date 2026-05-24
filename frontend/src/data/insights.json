@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-05-24T16:01:54+07:00",
+  "source": "dashboard_exports",
+  "sourceConfidence": {
+    "level": "high",
+    "score": 0.92,
+    "detail": "Derived from refreshed SQL dashboard views over real YouTube data."
+  },
+  "freshness": {
+    "dataFrom": "2023-01-01",
+    "dataThrough": "2026-05-19",
+    "generatedAt": "2026-05-24T16:01:54+07:00",
+    "status": "fresh"
+  },
+  "highlights": [
+    {
+      "title": "YouTube baseline refreshed",
+      "detail": "65 videos and 15 comments are available for BI analysis.",
+      "metric": "65",
+      "tone": "positive"
+    },
+    {
+      "title": "Highlands dominates reach",
+      "detail": "Highlands Coffee Vietnam is the strongest owned-channel signal in the current dataset.",
+      "metric": "99.4%",
+      "tone": "positive"
+    },
+    {
+      "title": "Sentiment is mostly neutral",
+      "detail": "11 of 15 classified comments are neutral; positive=3, negative=1.",
+      "metric": "11",
+      "tone": "neutral"
+    }
+  ],
+  "risks": [
+    {
+      "title": "The Coffee House source confidence",
+      "detail": "The official YouTube channel was not identified reliably; query-filtered videos are treated as lower-confidence market mentions.",
+      "tone": "warning"
+    },
+    {
+      "title": "Comment sample is small",
+      "detail": "Only public comments returned by YouTube API are available, so sentiment should be treated as directional.",
+      "tone": "warning"
+    }
+  ],
+  "recommendations": [
+    "Use refreshed warehouse views as the Power BI source of truth.",
+    "Treat The Coffee House YouTube metrics as market mention evidence until an official channel ID is confirmed.",
+    "Increase CTA prompts on Highlands videos to move neutral comments toward positive engagement."
+  ]
+}

@@ -1,10 +1,11 @@
 import { KpiCard } from "@/components/KpiCard";
 import { PageHeader } from "@/components/PageHeader";
-import { getSyncStatus } from "@/lib/api";
+import { getInsights, getSyncStatus } from "@/lib/api";
 import { formatDateTime, formatNumber } from "@/lib/format";
 
 export default async function DataHealthPage() {
-  const status = await getSyncStatus();
+  const [status, insights] = await Promise.all([getSyncStatus(), getInsights()]);
+  const confidenceTone = insights.sourceConfidence.level === "low" ? "warning" : "positive";
 
   return (
     <main className="page">
@@ -18,7 +19,7 @@ export default async function DataHealthPage() {
           kpi={{
             label: "Sync mode",
             value: status.status,
-            delta: status.source,
+            delta: `source: ${status.source}`,
             tone: status.status === "fallback" ? "warning" : "positive"
           }}
         />
@@ -32,20 +33,57 @@ export default async function DataHealthPage() {
         />
         <KpiCard
           kpi={{
-            label: "Processed posts",
-            value: formatNumber(status.processedPosts),
-            delta: "dashboard-ready",
-            tone: "positive"
+            label: "Data through",
+            value: status.freshness.dataThrough,
+            delta: status.freshness.status,
+            tone: status.freshness.status === "fresh" ? "positive" : "warning"
           }}
         />
         <KpiCard
           kpi={{
-            label: "Processed comments",
-            value: formatNumber(status.processedComments),
-            delta: status.qualityPassed ? "quality passed" : "review needed",
-            tone: status.qualityPassed ? "positive" : "warning"
+            label: "Source confidence",
+            value: `${Math.round(status.sourceConfidence.score * 100)}%`,
+            delta: status.sourceConfidence.level,
+            tone: status.sourceConfidence.level === "low" ? "warning" : "positive"
           }}
         />
+      </section>
+      <section className="grid two-col health-grid">
+        <section className="panel">
+          <div className="panel-header">
+            <h2>Data freshness</h2>
+            <span className={`badge badge-${status.freshness.status}`}>{status.freshness.status}</span>
+          </div>
+          <div className="metric-list">
+            <div>
+              <span>Processed posts</span>
+              <strong>{formatNumber(status.processedPosts)}</strong>
+            </div>
+            <div>
+              <span>Processed comments</span>
+              <strong>{formatNumber(status.processedComments)}</strong>
+            </div>
+            <div>
+              <span>Snapshot generated</span>
+              <strong>{formatDateTime(insights.generatedAt)}</strong>
+            </div>
+          </div>
+        </section>
+        <section className="panel insight">
+          <div className="panel-header">
+            <h2>Source confidence</h2>
+            <span className={`delta delta-${confidenceTone}`}>{insights.sourceConfidence.level}</span>
+          </div>
+          <p>{insights.sourceConfidence.detail}</p>
+          <div className="insight-list">
+            {insights.risks.map((risk) => (
+              <div className="insight-item" key={risk.title}>
+                <span className={`delta delta-${risk.tone}`}>{risk.title}</span>
+                <p>{risk.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </section>
       <section className="panel">
         <div className="panel-header">

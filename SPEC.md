@@ -11,18 +11,20 @@ This file is the implementation source of truth. Any intentional change to scope
 - Industry: F&B
 - Main brand: Highlands Coffee
 - Competitors: Phuc Long, The Coffee House
-- Primary platforms: Facebook and YouTube
+- Primary real platform: YouTube
+- Sample mode: YouTube/F&B synthetic data for local development and automated tests only
+- Facebook Graph API is not required for the MVP
 - Extension platforms: TikTok and Instagram, only if data is available after the MVP works
 
 ## 3. Data Strategy
 
-The project uses real API extraction first, with mandatory sample/public fallback.
+The project uses YouTube real API extraction as the production/demo data source. Sample data remains available for development and automated tests, but the primary `make etl` and `make demo` workflows must run with sample fallback disabled because a real YouTube API key is available.
 
 Extraction priority:
 
-1. Facebook Graph API, when `FACEBOOK_ACCESS_TOKEN` and `FACEBOOK_PAGE_IDS` are configured.
-2. YouTube Data API, when `YOUTUBE_API_KEY` and `YOUTUBE_CHANNEL_IDS` or `YOUTUBE_QUERIES` are configured.
-3. Deterministic sample fallback, always available for demo, tests, and submission.
+1. YouTube Data API, when `YOUTUBE_API_KEY` and `YOUTUBE_CHANNEL_IDS` or `YOUTUBE_QUERIES` are configured.
+2. Deterministic YouTube/F&B sample fallback, available only for local development, tests, and explicit fallback runs.
+3. Facebook Graph API is optional and out of MVP scope because of Page permission and App Review risk.
 
 Raw records must be stored as JSONL under `data/raw/{source}/` by `run_id`. Processed outputs must be written under `data/processed/` as CSV files so Power BI can import data even when the database connection is unavailable.
 
@@ -89,8 +91,9 @@ The ETL pipeline must be runnable from the command line and through `make demo`.
 
 Required behavior:
 
-- Extract real API data when credentials exist.
-- Fall back to deterministic sample data when credentials are missing or API calls fail.
+- Extract real YouTube API data when credentials exist.
+- Fail production/demo ETL runs when YouTube credentials, channel ids, queries, or API calls fail.
+- Fall back to deterministic sample data only when an explicit dev/test fallback run is requested.
 - Normalize posts and comments to shared schemas.
 - Deduplicate by `(platform, external_id)`.
 - Compute KPI fields consistently.
@@ -161,8 +164,9 @@ Required docs:
 
 ETL tests:
 
-- Mock Facebook and YouTube success, HTTP error, timeout, and pagination.
-- Missing credentials use sample fallback.
+- Mock YouTube success, HTTP error, timeout, and pagination.
+- Missing credentials fail when `--no-sample-fallback` is enabled.
+- Explicit fallback mode uses YouTube/F&B sample data for local tests.
 - Normalization handles timestamps, nulls, duplicates, and engagement formulas.
 - Load is idempotent.
 
@@ -181,7 +185,7 @@ SQL validation:
 
 Smoke test:
 
-- `make demo` creates schema, runs ETL with fallback as needed, runs quality checks, writes processed CSVs, and exports dashboard-ready data.
+- `make demo` creates schema, runs real YouTube ETL with fallback disabled, runs quality checks, writes processed CSVs, and exports dashboard-ready data.
 
 ## 12. Agent Coordination Policy
 
