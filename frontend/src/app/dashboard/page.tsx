@@ -11,15 +11,22 @@ import {
   getTopPosts
 } from "@/lib/api";
 import { formatNumber, formatPercent } from "@/lib/format";
+import { getDictionary } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/i18n-server";
+
+export const revalidate = 900;
 
 export default async function DashboardPage() {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const numberLocale = locale === "vi" ? "vi-VN" : "en-US";
   const [overview, engagement, sentiment, heatmap, posts, insights] = await Promise.all([
-    getOverview(),
-    getEngagement(),
-    getSentiment(),
-    getHeatmap(),
+    getOverview(locale),
+    getEngagement(120),
+    getSentiment(120),
+    getHeatmap(locale),
     getTopPosts(),
-    getInsights()
+    getInsights(locale)
   ]);
   const topPost = posts[0];
 
@@ -27,8 +34,8 @@ export default async function DashboardPage() {
     <main className="page">
       <PageHeader
         eyebrow={overview.dateRange}
-        title="Executive overview"
-        description="High-level performance view for engagement, sentiment, virality, reach growth, and share of voice."
+        title={dictionary.dashboard.title}
+        description={dictionary.dashboard.description}
       />
 
       <section className="grid kpi-grid">
@@ -40,7 +47,7 @@ export default async function DashboardPage() {
       <section className="grid two-col">
         <section className="panel insight">
           <div className="panel-header">
-            <h2>BI insights</h2>
+            <h2>{dictionary.dashboard.insights}</h2>
             <span className={`badge badge-${insights.freshness.status}`}>{insights.freshness.status}</span>
           </div>
           <strong>{overview.finding.title}</strong>
@@ -55,34 +62,38 @@ export default async function DashboardPage() {
             ))}
           </div>
           <div className="source-meta">
-            <span>Data through {insights.freshness.dataThrough}</span>
             <span>
-              {insights.sourceConfidence.level} confidence from {insights.source}
+              {dictionary.common.dataThrough} {insights.freshness.dataThrough}
+            </span>
+            <span>
+              {insights.sourceConfidence.level} {dictionary.common.confidenceFrom} {insights.source}
             </span>
           </div>
           {topPost ? (
             <p>
-              Top post: {topPost.brand} {topPost.contentType} with{" "}
-              {formatNumber(topPost.engagementCount)} engagements and{" "}
-              {formatPercent(topPost.engagementRate)} engagement rate.
+              {dictionary.common.topPost}: {topPost.brand} {topPost.contentType} {dictionary.common.with}{" "}
+              {formatNumber(topPost.engagementCount, numberLocale)} {dictionary.common.engagements} {dictionary.common.and}{" "}
+              {formatPercent(topPost.engagementRate)} {dictionary.common.engagementRate}.
             </p>
           ) : null}
         </section>
         <SimpleChart
-          title="Engagement trend"
+          emptyLabel={dictionary.common.noData}
+          title={dictionary.dashboard.engagementTrend}
           points={engagement.map((point) => ({
             label: point.date,
             value: point.engagementRate
           }))}
         />
         <SimpleChart
-          title="Positive sentiment"
+          emptyLabel={dictionary.common.noData}
+          title={dictionary.dashboard.positiveSentiment}
           points={sentiment.map((point) => ({
             label: point.date,
             value: point.positive
           }))}
         />
-        <Heatmap cells={heatmap} />
+        <Heatmap cells={heatmap} emptyLabel={dictionary.common.noData} title={dictionary.heatmap.title} />
       </section>
     </main>
   );

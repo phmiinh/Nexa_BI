@@ -114,7 +114,7 @@ def normalize_posts(raw_posts: list[dict[str, Any]]) -> pd.DataFrame:
             }
         )
 
-    return pd.DataFrame(rows, columns=POST_COLUMNS).drop_duplicates("post_id")
+    return pd.DataFrame(rows, columns=POST_COLUMNS).drop_duplicates(["platform", "post_id"])
 
 
 def normalize_comments(raw_comments: list[dict[str, Any]]) -> pd.DataFrame:
@@ -139,7 +139,7 @@ def normalize_comments(raw_comments: list[dict[str, Any]]) -> pd.DataFrame:
             }
         )
 
-    return pd.DataFrame(rows, columns=COMMENT_COLUMNS).drop_duplicates("comment_id")
+    return pd.DataFrame(rows, columns=COMMENT_COLUMNS).drop_duplicates(["platform", "comment_id"])
 
 
 def normalize_dataset(raw: dict[str, list[dict[str, Any]]]) -> dict[str, pd.DataFrame]:

@@ -27,7 +27,7 @@ if load_dotenv is not None:
 
 
 def add_pipeline_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--source", choices=["sample", "json", "facebook", "youtube"], default="sample")
+    parser.add_argument("--source", choices=["sample", "json", "facebook", "youtube"], default="youtube")
     parser.add_argument("--input-path", help="JSON file for --source json")
     parser.add_argument("--output-dir", default="data/processed")
     parser.add_argument("--database-url", help="SQLAlchemy URL")
@@ -35,7 +35,8 @@ def add_pipeline_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--channel-id", help="YouTube channel id")
     parser.add_argument("--query", help="YouTube search query")
     parser.add_argument("--limit", type=int, default=25)
-    parser.add_argument("--no-sample-fallback", action="store_true")
+    parser.add_argument("--comments-limit", type=int, default=20)
+    parser.add_argument("--max-search-pages", type=int, default=1)
     parser.add_argument("--allow-quality-errors", action="store_true")
 
 
@@ -49,18 +50,22 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--output-dir", default="data/processed")
     run_parser.add_argument("--database-url")
     run_parser.add_argument("--limit", type=int, default=25)
-    run_parser.add_argument("--no-sample-fallback", action="store_true")
+    run_parser.add_argument("--comments-limit", type=int, default=20)
+    run_parser.add_argument("--max-search-pages", type=int, default=1)
+    run_parser.add_argument("--channel-ids", help="Comma-separated YouTube channel ids; overrides YOUTUBE_CHANNEL_IDS")
+    run_parser.add_argument("--queries", help="Comma-separated YouTube search queries; overrides YOUTUBE_QUERIES")
     run_parser.add_argument("--allow-quality-errors", action="store_true")
 
     load_parser = subparsers.add_parser("load", help="Load existing processed CSV files into warehouse")
     load_parser.add_argument("--input-dir", default="data/processed")
     load_parser.add_argument("--database-url")
+    load_parser.add_argument("--run-source", default="etl.cli:load")
 
     quality_parser = subparsers.add_parser("quality", help="Run processed CSV quality checks")
     quality_parser.add_argument("--input-dir", default="data/processed")
     quality_parser.add_argument("--database-url")
 
-    export_parser = subparsers.add_parser("export", help="Export warehouse views for Power BI/Next fallback")
+    export_parser = subparsers.add_parser("export", help="Export warehouse views for Power BI/evidence artifacts")
     export_parser.add_argument("--database-url")
     export_parser.add_argument("--output-dir", default="dashboard/exports")
 
@@ -79,23 +84,34 @@ def run_single_source(args: argparse.Namespace) -> dict[str, Any]:
         channel_id=getattr(args, "channel_id", None),
         query=getattr(args, "query", None),
         limit=args.limit,
-        sample_fallback=not getattr(args, "no_sample_fallback", False),
+        comments_limit=args.comments_limit,
+        max_search_pages=args.max_search_pages,
         fail_on_quality_error=not args.allow_quality_errors,
+        run_source=getattr(args, "run_source", f"etl.cli:{args.source}"),
     ).as_dict()
 
 
 def run_many(args: argparse.Namespace) -> dict[str, Any]:
-    results = []
     database_url = args.database_url
+    expanded_args: list[argparse.Namespace] = []
     for source in [item.strip() for item in args.sources.split(",") if item.strip()]:
-        for source_args in expand_source_args(source, args, database_url):
-            results.append(run_single_source(source_args))
+        expanded_args.extend(expand_source_args(source, args, database_url))
+
+    use_consolidated_load = len(expanded_args) > 1 and bool(database_url)
+    results = []
+    for source_args in expanded_args:
+        if use_consolidated_load:
+            source_args.database_url = None
+        results.append(run_single_source(source_args))
+
     payload: dict[str, Any] = {"runs": results}
     if should_consolidate(results):
         payload["consolidated"] = consolidate_raw_outputs(
             results,
             args.output_dir,
             fail_on_quality_error=not args.allow_quality_errors,
+            database_url=database_url if use_consolidated_load else None,
+            run_source=f"etl.cli:{args.sources}:consolidated",
         )
     return payload
 
@@ -107,7 +123,11 @@ def should_consolidate(results: list[dict[str, Any]]) -> bool:
 
 
 def consolidate_raw_outputs(
-    results: list[dict[str, Any]], output_dir: str, fail_on_quality_error: bool = True
+    results: list[dict[str, Any]],
+    output_dir: str,
+    fail_on_quality_error: bool = True,
+    database_url: str | None = None,
+    run_source: str = "etl.cli:consolidated",
 ) -> dict[str, Any]:
     raw: dict[str, list[dict[str, Any]]] = {"posts": [], "comments": []}
     for result in results:
@@ -127,16 +147,25 @@ def consolidate_raw_outputs(
     if fail_on_quality_error and not quality.passed:
         raise ValueError(f"consolidated quality checks failed: {quality.errors}")
 
-    return {
+    payload: dict[str, Any] = {
         "normalized_posts": len(tables["posts"]),
         "normalized_comments": len(tables["comments"]),
         "quality": quality.as_dict(),
         "csv": load_csv(tables, output_dir),
     }
+    if database_url:
+        payload["sql"] = load_sql(tables, database_url, run_source=run_source)
+    return payload
 
 
 def split_env_list(name: str) -> list[str]:
     return [item.strip() for item in os.getenv(name, "").split(",") if item.strip()]
+
+
+def split_csv_value(value: str | None) -> list[str]:
+    if value is None:
+        return []
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 
 def expand_source_args(
@@ -151,14 +180,23 @@ def expand_source_args(
         "channel_id": None,
         "query": None,
         "limit": args.limit,
-        "no_sample_fallback": getattr(args, "no_sample_fallback", False),
+        "comments_limit": args.comments_limit,
+        "max_search_pages": args.max_search_pages,
         "allow_quality_errors": args.allow_quality_errors,
     }
     if source != "youtube":
         return [argparse.Namespace(**base)]
 
-    channel_ids = split_env_list("YOUTUBE_CHANNEL_IDS")
-    queries = split_env_list("YOUTUBE_QUERIES")
+    channel_ids = (
+        split_csv_value(args.channel_ids)
+        if getattr(args, "channel_ids", None) is not None
+        else split_env_list("YOUTUBE_CHANNEL_IDS")
+    )
+    queries = (
+        split_csv_value(args.queries)
+        if getattr(args, "queries", None) is not None
+        else split_env_list("YOUTUBE_QUERIES")
+    )
     expanded: list[argparse.Namespace] = []
     for channel_id in channel_ids:
         expanded.append(argparse.Namespace(**{**base, "channel_id": channel_id}))
@@ -167,7 +205,7 @@ def expand_source_args(
     return expanded or [argparse.Namespace(**base)]
 
 
-def load_existing_csv(input_dir: str, database_url: str) -> dict[str, Any]:
+def load_existing_csv(input_dir: str, database_url: str, run_source: str = "etl.cli:load") -> dict[str, Any]:
     if not database_url:
         raise ValueError("database_url is required for warehouse load")
     path = Path(input_dir)
@@ -179,7 +217,7 @@ def load_existing_csv(input_dir: str, database_url: str) -> dict[str, Any]:
         "posts": pd.read_csv(posts_path, parse_dates=["posted_at"]),
         "comments": pd.read_csv(comments_path, parse_dates=["commented_at"]),
     }
-    return {"sql": load_sql(tables, database_url)}
+    return {"sql": load_sql(tables, database_url, run_source=run_source)}
 
 
 def quality_existing_csv(input_dir: str) -> dict[str, Any]:
@@ -188,6 +226,32 @@ def quality_existing_csv(input_dir: str) -> dict[str, Any]:
     comments = pd.read_csv(path / "comments.csv")
     report = check_quality(posts, comments)
     return report.as_dict()
+
+
+def quality_warehouse(database_url: str) -> dict[str, Any]:
+    if not database_url:
+        raise ValueError("database_url is required for warehouse quality checks")
+    from sqlalchemy import create_engine, text
+
+    validation_sql = Path("warehouse/queries/dashboard_validation.sql").read_text(encoding="utf-8")
+    validation_sql = validation_sql.replace("SET search_path TO social_dw;", "")
+    engine = create_engine(database_url)
+    with engine.connect() as connection:
+        connection.exec_driver_sql("SET search_path TO social_dw")
+        frame = pd.read_sql_query(text(validation_sql), connection)
+
+    status_counts = {
+        str(status): int(count)
+        for status, count in frame["status"].value_counts().sort_index().items()
+    }
+    failures = frame[frame["status"] == "FAIL"]
+    return {
+        "passed": failures.empty,
+        "errors": failures["check_name"].astype(str).tolist(),
+        "warnings": [],
+        "validation_rows": int(len(frame)),
+        "status_counts": status_counts,
+    }
 
 
 def export_views(database_url: str, output_dir: str) -> dict[str, str]:
@@ -240,11 +304,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "run":
             result = run_many(args)
         elif args.command == "load":
-            result = load_existing_csv(args.input_dir, args.database_url or os.getenv("DATABASE_URL"))
+            result = load_existing_csv(
+                args.input_dir,
+                args.database_url or os.getenv("DATABASE_URL") or os.getenv("SOCIALENS_DATABASE_URL"),
+                run_source=args.run_source,
+            )
         elif args.command == "quality":
-            result = quality_existing_csv(args.input_dir)
+            database_url = args.database_url or os.getenv("DATABASE_URL") or os.getenv("SOCIALENS_DATABASE_URL")
+            result = quality_warehouse(database_url) if database_url else quality_existing_csv(args.input_dir)
         elif args.command == "export":
-            result = {"exports": export_views(args.database_url or os.getenv("DATABASE_URL"), args.output_dir)}
+            database_url = args.database_url or os.getenv("DATABASE_URL") or os.getenv("SOCIALENS_DATABASE_URL")
+            result = {"exports": export_views(database_url, args.output_dir)}
         else:
             result = run_single_source(args)
     except Exception as exc:

@@ -37,7 +37,7 @@ Do not build the submitted dashboard from sample-only development data.
 Before opening Power BI, run the final ETL sequence:
 
 ```powershell
-python -m etl.cli run --sources youtube --no-sample-fallback --database-url $env:DATABASE_URL
+python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 python -m etl.cli quality --database-url $env:DATABASE_URL
 python -m etl.cli export --database-url $env:DATABASE_URL
 ```

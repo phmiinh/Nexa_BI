@@ -12,3 +12,6 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "live_youtube: opt-in tests that call the real YouTube Data API",
+]

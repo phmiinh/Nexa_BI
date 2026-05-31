@@ -1,6 +1,16 @@
 SET search_path TO social_dw;
 
 CREATE OR REPLACE VIEW vw_post_performance AS
+WITH sentiment_by_post AS (
+    SELECT
+        post_id,
+        count(*) AS loaded_comment_count,
+        count(*) FILTER (WHERE sentiment_label = 'positive') AS positive_comment_count,
+        count(*) FILTER (WHERE sentiment_label = 'neutral') AS neutral_comment_count,
+        count(*) FILTER (WHERE sentiment_label = 'negative') AS negative_comment_count
+    FROM fact_sentiment
+    GROUP BY post_id
+)
 SELECT
     fp.post_id,
     fp.external_post_id,
@@ -28,12 +38,18 @@ SELECT
     fp.engagement_rate,
     fp.virality_score,
     fp.post_url,
-    fp.caption
+    fp.caption,
+    coalesce(sbp.loaded_comment_count, 0) AS loaded_comment_count,
+    coalesce(sbp.positive_comment_count, 0) AS positive_comment_count,
+    coalesce(sbp.neutral_comment_count, 0) AS neutral_comment_count,
+    coalesce(sbp.negative_comment_count, 0) AS negative_comment_count,
+    round((coalesce(sbp.positive_comment_count, 0)::numeric / NULLIF(coalesce(sbp.loaded_comment_count, 0), 0)) * 100, 2) AS sentiment_ratio
 FROM fact_post fp
 JOIN dim_time dt ON dt.time_id = fp.time_id
 JOIN dim_platform dp ON dp.platform_id = fp.platform_id
 JOIN dim_content_type dct ON dct.content_type_id = fp.content_type_id
-JOIN dim_page dpg ON dpg.page_id = fp.page_id;
+JOIN dim_page dpg ON dpg.page_id = fp.page_id
+LEFT JOIN sentiment_by_post sbp ON sbp.post_id = fp.post_id;
 
 CREATE OR REPLACE VIEW vw_sentiment_daily AS
 SELECT
@@ -125,18 +141,37 @@ SELECT *
 FROM vw_platform_content_summary;
 
 CREATE OR REPLACE VIEW vw_competitor_benchmark AS
+WITH page_performance AS (
+    SELECT
+        platform_name,
+        page_name,
+        industry,
+        is_competitor,
+        count(*) AS post_count,
+        sum(reach) AS total_reach,
+        sum(engagement_count) AS total_engagement,
+        round(avg(engagement_rate), 4) AS avg_engagement_rate,
+        round(avg(virality_score), 4) AS avg_virality_score,
+        sum(loaded_comment_count) AS comment_count,
+        sum(positive_comment_count) AS positive_count
+    FROM vw_post_performance
+    GROUP BY platform_name, page_name, industry, is_competitor
+)
 SELECT
     platform_name,
     page_name,
     industry,
     is_competitor,
-    count(*) AS post_count,
-    sum(reach) AS total_reach,
-    sum(engagement_count) AS total_engagement,
-    round(avg(engagement_rate), 4) AS avg_engagement_rate,
-    round(avg(virality_score), 4) AS avg_virality_score
-FROM vw_post_performance
-GROUP BY platform_name, page_name, industry, is_competitor;
+    post_count,
+    total_reach,
+    total_engagement,
+    avg_engagement_rate,
+    avg_virality_score,
+    comment_count,
+    positive_count,
+    round((total_reach::numeric / NULLIF(sum(total_reach) OVER (PARTITION BY platform_name), 0)) * 100, 2) AS share_of_voice,
+    round((positive_count::numeric / NULLIF(comment_count, 0)) * 100, 2) AS sentiment_ratio
+FROM page_performance;
 
 CREATE OR REPLACE VIEW vw_posting_time_heatmap AS
 SELECT *
@@ -154,6 +189,9 @@ SELECT
     engagement_count,
     engagement_rate,
     virality_score,
-    caption
+    caption,
+    loaded_comment_count,
+    positive_comment_count,
+    sentiment_ratio
 FROM vw_post_performance
 ORDER BY virality_score DESC NULLS LAST, engagement_count DESC NULLS LAST;

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
+from functools import lru_cache
+import logging
 from typing import Any
 
 import pandas as pd
 from django.conf import settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -15,188 +18,79 @@ class DataSource:
     detail: str
 
 
+class WarehouseUnavailable(RuntimeError):
+    """Raised when the canonical PostgreSQL warehouse cannot serve data."""
+
+
 class Repository:
     def __init__(self) -> None:
-        self.processed_dir = Path(settings.SOCIALENS_PROCESSED_DIR)
         self.database_url = settings.SOCIALENS_DATABASE_URL
-        self.source = DataSource("csv", str(self.processed_dir))
+        self.source = DataSource("warehouse", "social_dw")
 
     def posts(self) -> pd.DataFrame:
         db = self._read_view("social_dw.vw_post_performance")
-        if db is not None:
-            db = db.rename(
-                columns={
-                    "post_id": "warehouse_post_id",
-                    "external_post_id": "post_id",
-                    "caption": "content_text",
-                }
-            )
-            return self._normalize_post_frame(db)
-
-        frame = self._read_csv("posts.csv")
-        return self._normalize_post_frame(frame)
+        db = db.rename(
+            columns={
+                "post_id": "warehouse_post_id",
+                "external_post_id": "post_id",
+                "caption": "content_text",
+            }
+        )
+        return self._normalize_post_frame(db)
 
     def comments(self) -> pd.DataFrame:
-        return self._read_csv("comments.csv")
+        return self._query("SELECT * FROM social_dw.fact_sentiment")
 
     def overview(self) -> dict[str, Any]:
         db = self._read_view("social_dw.vw_executive_overview")
-        if db is not None and not db.empty:
+        if not db.empty:
             row = clean_record(db.iloc[0].to_dict())
             row["source"] = self.source.name
             return row
-
-        posts = self.posts()
         return {
-            "total_posts": int(len(posts)),
-            "total_reach": int(posts["reach"].sum()),
-            "total_impressions": int(posts["impressions"].sum()),
-            "total_engagement": int(posts["engagement_count"].sum()),
-            "avg_engagement_rate": safe_round(posts["engagement_rate"].mean()),
-            "avg_virality_score": safe_round(posts["virality_score"].mean()),
-            "date_from": min_or_none(posts, "date"),
-            "date_to": max_or_none(posts, "date"),
+            "total_posts": 0,
+            "total_reach": 0,
+            "total_impressions": 0,
+            "total_engagement": 0,
+            "avg_engagement_rate": None,
+            "avg_virality_score": None,
+            "date_from": None,
+            "date_to": None,
             "source": self.source.name,
         }
 
-    def engagement(self) -> list[dict[str, Any]]:
-        db = self._read_view("social_dw.vw_daily_engagement")
-        if db is not None:
-            return records(db)
-
-        posts = self.posts()
-        grouped = (
-            posts.groupby(["date", "platform"], dropna=False)
-            .agg(
-                post_count=("post_id", "count"),
-                total_reach=("reach", "sum"),
-                total_impressions=("impressions", "sum"),
-                total_engagement=("engagement_count", "sum"),
-                avg_engagement_rate=("engagement_rate", "mean"),
-                avg_virality_score=("virality_score", "mean"),
-            )
-            .reset_index()
-            .rename(columns={"date": "full_date", "platform": "platform_name"})
-            .sort_values(["full_date", "platform_name"])
+    def engagement(self, limit: int | None = None) -> list[dict[str, Any]]:
+        frame = self._read_view(
+            "social_dw.vw_daily_engagement",
+            order_by="full_date DESC, platform_name",
+            limit=limit,
         )
-        return records(grouped)
+        return records(frame.sort_values(["full_date", "platform_name"]))
 
-    def sentiment(self) -> list[dict[str, Any]]:
-        db = self._read_view("social_dw.vw_sentiment_trend")
-        if db is not None:
-            return records(db)
-
-        comments = self.comments()
-        posts = self.posts()[["post_id", "page_name"]].drop_duplicates()
-        comments = comments.merge(posts, on="post_id", how="left")
-        grouped = comments.groupby(["date", "platform", "page_name"], dropna=False)
-        frame = grouped.agg(
-            comment_count=("comment_id", "count"),
-            positive_count=("sentiment_label", lambda s: int((s == "positive").sum())),
-            neutral_count=("sentiment_label", lambda s: int((s == "neutral").sum())),
-            negative_count=("sentiment_label", lambda s: int((s == "negative").sum())),
-            avg_sentiment_score=("sentiment_score", "mean"),
-        ).reset_index()
-        frame["positive_pct"] = pct(frame["positive_count"], frame["comment_count"])
-        frame["negative_pct"] = pct(frame["negative_count"], frame["comment_count"])
-        frame = frame.rename(columns={"date": "full_date", "platform": "platform_name"})
+    def sentiment(self, limit: int | None = None) -> list[dict[str, Any]]:
+        frame = self._read_view(
+            "social_dw.vw_sentiment_trend",
+            order_by="full_date DESC, platform_name, page_name",
+            limit=limit,
+        )
         return records(frame.sort_values(["full_date", "platform_name", "page_name"]))
 
     def content_performance(self) -> list[dict[str, Any]]:
-        db = self._read_view("social_dw.vw_content_performance")
-        if db is not None:
-            return records(db)
-
-        posts = self.posts()
-        posts["is_competitor"] = posts["page_name"].map(is_competitor)
-        frame = (
-            posts.groupby(["platform", "content_type", "is_competitor"], dropna=False)
-            .agg(
-                post_count=("post_id", "count"),
-                total_reach=("reach", "sum"),
-                total_impressions=("impressions", "sum"),
-                total_engagement=("engagement_count", "sum"),
-                avg_engagement_rate=("engagement_rate", "mean"),
-                avg_virality_score=("virality_score", "mean"),
-            )
-            .reset_index()
-            .rename(columns={"platform": "platform_name"})
-            .sort_values(["platform_name", "content_type", "is_competitor"])
-        )
-        return records(frame)
+        return records(self._read_view("social_dw.vw_content_performance"))
 
     def heatmap(self) -> list[dict[str, Any]]:
-        db = self._read_view("social_dw.vw_posting_time_heatmap")
-        if db is not None:
-            return records(db)
-
-        posts = self.posts()
-        frame = (
-            posts.groupby(["day_of_week", "hour", "platform"], dropna=False)
-            .agg(
-                post_count=("post_id", "count"),
-                avg_engagement_rate=("engagement_rate", "mean"),
-                total_engagement=("engagement_count", "sum"),
-            )
-            .reset_index()
-            .rename(columns={"hour": "hour_of_day", "platform": "platform_name"})
-            .sort_values(["day_of_week", "hour_of_day", "platform_name"])
-        )
-        frame["day_name"] = frame["day_of_week"]
-        return records(frame)
+        return records(self._read_view("social_dw.vw_posting_time_heatmap"))
 
     def competitors(self) -> list[dict[str, Any]]:
-        db = self._read_view("social_dw.vw_competitor_benchmark")
-        if db is not None:
-            return records(db)
-
-        posts = self.posts()
-        posts["is_competitor"] = posts["page_name"].map(is_competitor)
-        frame = (
-            posts.groupby(["platform", "page_name", "is_competitor"], dropna=False)
-            .agg(
-                post_count=("post_id", "count"),
-                total_reach=("reach", "sum"),
-                total_engagement=("engagement_count", "sum"),
-                avg_engagement_rate=("engagement_rate", "mean"),
-                avg_virality_score=("virality_score", "mean"),
-            )
-            .reset_index()
-            .rename(columns={"platform": "platform_name"})
-            .sort_values(["platform_name", "is_competitor", "page_name"])
-        )
-        frame["industry"] = "F&B"
-        return records(frame)
+        return records(self._read_view("social_dw.vw_competitor_benchmark"))
 
     def top_posts(self, limit: int = 10) -> list[dict[str, Any]]:
-        db = self._read_view("social_dw.vw_viral_posts")
-        if db is not None:
-            return records(db.head(limit))
-
-        posts = self.posts()
-        columns = [
-            "post_id",
-            "platform",
-            "page_name",
-            "content_type",
-            "date",
-            "reach",
-            "engagement_count",
-            "engagement_rate",
-            "virality_score",
-            "content_text",
-        ]
-        frame = posts[columns].rename(
-            columns={
-                "platform": "platform_name",
-                "date": "full_date",
-                "content_text": "caption",
-            }
+        db = self._read_view(
+            "social_dw.vw_viral_posts",
+            order_by="virality_score DESC NULLS LAST, engagement_count DESC NULLS LAST",
+            limit=limit,
         )
-        frame = frame.sort_values(
-            ["virality_score", "engagement_count"], ascending=[False, False], na_position="last"
-        )
-        return records(frame.head(limit))
+        return records(db)
 
     def _legacy_insights(self) -> dict[str, Any]:
         overview = self.overview()
@@ -390,29 +284,13 @@ class Repository:
             LIMIT 1
             """
         )
-        if db is not None:
-            row = clean_record(db.iloc[0].to_dict()) if not db.empty else {"status": "available", "source": "warehouse"}
-            row["source_type"] = "warehouse"
-            row.update(self._warehouse_current_state() or {"counts": {"posts": None, "comments": None}, "platforms": []})
-            row["source_confidence"] = source_confidence("warehouse", row.get("status"))
-            return row
+        row = clean_record(db.iloc[0].to_dict()) if not db.empty else {"status": "available", "source": "warehouse"}
+        row["source_type"] = "warehouse"
+        row.update(self._warehouse_current_state())
+        row["source_confidence"] = source_confidence("warehouse", row.get("status"))
+        return row
 
-        posts_path = self.processed_dir / "posts.csv"
-        comments_path = self.processed_dir / "comments.csv"
-        fallback_state = self._csv_current_state(posts_path, comments_path)
-        return {
-            "status": "available" if posts_path.exists() else "missing",
-            "source": "processed_csv",
-            "source_type": "csv",
-            "posts_path": str(posts_path),
-            "comments_path": str(comments_path),
-            "posts_modified_at": modified_at(posts_path),
-            "comments_modified_at": modified_at(comments_path),
-            **fallback_state,
-            "source_confidence": source_confidence("csv", "available" if posts_path.exists() else "missing"),
-        }
-
-    def _warehouse_current_state(self) -> dict[str, Any] | None:
+    def _warehouse_current_state(self) -> dict[str, Any]:
         frame = self._query(
             """
             SELECT
@@ -438,8 +316,6 @@ class Repository:
                 ) AS platforms
             """
         )
-        if frame is None:
-            return None
         if frame.empty:
             return {
                 "counts": {"posts": 0, "comments": 0},
@@ -469,17 +345,6 @@ class Repository:
             },
         }
 
-    def _csv_current_state(self, posts_path: Path, comments_path: Path) -> dict[str, Any]:
-        posts = pd.read_csv(posts_path) if posts_path.exists() else pd.DataFrame()
-        comments = pd.read_csv(comments_path) if comments_path.exists() else pd.DataFrame()
-        platforms = []
-        if "platform" in posts.columns:
-            platforms = sorted(posts["platform"].dropna().astype(str).str.lower().unique().tolist())
-        return {
-            "counts": {"posts": int(len(posts)), "comments": int(len(comments))},
-            "platforms": platforms,
-        }
-
     def _normalize_post_frame(self, frame: pd.DataFrame) -> pd.DataFrame:
         frame = frame.copy()
         if "platform_name" in frame.columns and "platform" not in frame.columns:
@@ -497,30 +362,42 @@ class Repository:
             frame["engagement_count"] = frame["likes"] + frame["comments_count"] + frame["shares"] + saves
         return frame
 
-    def _read_csv(self, filename: str) -> pd.DataFrame:
-        path = self.processed_dir / filename
-        self.source = DataSource("csv", str(path))
-        if not path.exists():
-            raise FileNotFoundError(f"Processed data file not found: {path}")
-        return pd.read_csv(path)
-
-    def _read_view(self, name: str) -> pd.DataFrame | None:
-        frame = self._query(f"SELECT * FROM {name}")
-        if frame is not None:
-            self.source = DataSource("warehouse", name)
+    def _read_view(
+        self,
+        name: str,
+        order_by: str | None = None,
+        limit: int | None = None,
+    ) -> pd.DataFrame:
+        sql = f"SELECT * FROM {name}"
+        if order_by:
+            sql = f"{sql} ORDER BY {order_by}"
+        params: dict[str, Any] = {}
+        if limit:
+            sql = f"{sql} LIMIT :limit"
+            params["limit"] = int(limit)
+        frame = self._query(sql, params or None)
+        self.source = DataSource("warehouse", name)
         return frame
 
-    def _query(self, sql: str) -> pd.DataFrame | None:
+    def _query(self, sql: str, params: dict[str, Any] | None = None) -> pd.DataFrame:
         if not self.database_url:
-            return None
+            raise WarehouseUnavailable("SOCIALENS_DATABASE_URL or DATABASE_URL is required")
         try:
-            from sqlalchemy import create_engine
+            from sqlalchemy import text
 
-            engine = create_engine(self.database_url, connect_args={"connect_timeout": 3})
+            engine = warehouse_engine(self.database_url)
             with engine.connect() as connection:
-                return pd.read_sql_query(sql, connection)
-        except Exception:
-            return None
+                return pd.read_sql_query(text(sql), connection, params=params)
+        except Exception as exc:
+            LOGGER.exception("Warehouse query failed")
+            raise WarehouseUnavailable(f"warehouse query failed: {exc}") from exc
+
+
+@lru_cache(maxsize=4)
+def warehouse_engine(database_url: str) -> Any:
+    from sqlalchemy import create_engine
+
+    return create_engine(database_url, connect_args={"connect_timeout": 3}, pool_pre_ping=True)
 
 
 def clean_record(row: dict[str, Any]) -> dict[str, Any]:
@@ -558,8 +435,8 @@ def source_confidence(source_type: str, status: Any) -> dict[str, Any]:
         return {
             "level": "high",
             "score": 0.92,
-            "reason": "Current warehouse data is loaded from real YouTube API with no sample fallback.",
-            "detail": "Current warehouse data is loaded from real YouTube API with no sample fallback.",
+            "reason": "Current warehouse data is loaded from real YouTube API without sample data.",
+            "detail": "Current warehouse data is loaded from real YouTube API without sample data.",
         }
     if source_type == "warehouse":
         return {
@@ -568,18 +445,11 @@ def source_confidence(source_type: str, status: Any) -> dict[str, Any]:
             "reason": "Warehouse is reachable, but the latest sync run is not marked successful.",
             "detail": "Warehouse is reachable, but the latest sync run is not marked successful.",
         }
-    if str(status).lower() == "available":
-        return {
-            "level": "medium",
-            "score": 0.7,
-            "reason": "Warehouse is unavailable; API is using the latest processed CSV data.",
-            "detail": "Warehouse is unavailable; API is using the latest processed CSV data.",
-        }
     return {
         "level": "low",
         "score": 0.3,
-        "reason": "No warehouse or processed CSV data is available.",
-        "detail": "No warehouse or processed CSV data is available.",
+        "reason": "Warehouse data is unavailable.",
+        "detail": "Warehouse data is unavailable.",
     }
 
 
@@ -596,10 +466,13 @@ def max_or_none(frame: pd.DataFrame, column: str) -> Any:
 
 
 def is_competitor(page_name: Any) -> bool:
-    return str(page_name).strip().lower() in {"phuc long", "the coffee house"}
-
-
-def modified_at(path: Path) -> str | None:
-    if not path.exists():
-        return None
-    return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+    normalized = str(page_name).strip().lower()
+    return normalized in {
+        "phuc long",
+        "the coffee house",
+        "cong caphe",
+        "starbucksvietnam",
+        "starbucks vietnam",
+        "gong cha vietnam",
+        "cheese coffee",
+    } or normalized.startswith(("trung", "starbucks", "koi"))

@@ -3,38 +3,46 @@ import { PageHeader } from "@/components/PageHeader";
 import { SimpleChart } from "@/components/SimpleChart";
 import { getContentPerformance } from "@/lib/api";
 import { formatNumber, formatPercent } from "@/lib/format";
+import { getDictionary } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/i18n-server";
 import type { ContentPerformance } from "@/lib/types";
 
-const columns: Column<ContentPerformance>[] = [
-  { key: "contentType", header: "Content type", render: (row) => row.contentType },
-  { key: "posts", header: "Posts", render: (row) => formatNumber(row.posts) },
-  { key: "reach", header: "Reach", render: (row) => formatNumber(row.reach) },
-  { key: "engagementRate", header: "Engagement rate", render: (row) => formatPercent(row.engagementRate) },
-  { key: "viralityScore", header: "Virality score", render: (row) => formatPercent(row.viralityScore) }
-];
+export const revalidate = 900;
 
 export default async function ContentPage() {
+  const locale = await getRequestLocale();
+  const dictionary = getDictionary(locale);
+  const numberLocale = locale === "vi" ? "vi-VN" : "en-US";
   const content = await getContentPerformance();
+  const columns: Column<ContentPerformance>[] = [
+    { key: "contentType", header: dictionary.content.columns.contentType, render: (row) => row.contentType },
+    { key: "posts", header: dictionary.content.columns.posts, render: (row) => formatNumber(row.posts, numberLocale) },
+    { key: "reach", header: dictionary.content.columns.reach, render: (row) => formatNumber(row.reach, numberLocale) },
+    { key: "engagementRate", header: dictionary.content.columns.engagementRate, render: (row) => formatPercent(row.engagementRate) },
+    { key: "viralityScore", header: dictionary.content.columns.viralityScore, render: (row) => formatPercent(row.viralityScore) }
+  ];
 
   return (
     <main className="page">
       <PageHeader
-        eyebrow="Content performance"
-        title="Content mix"
-        description="Compare post formats by reach, engagement rate, and virality score."
+        eyebrow={dictionary.content.eyebrow}
+        title={dictionary.content.title}
+        description={dictionary.content.description}
       />
       <section className="grid two-col">
         <SimpleChart
-          title="Engagement rate by type"
+          emptyLabel={dictionary.common.noData}
+          title={dictionary.content.engagementByType}
           points={content.map((row) => ({ label: row.contentType, value: row.engagementRate }))}
         />
         <SimpleChart
-          title="Virality by type"
+          emptyLabel={dictionary.common.noData}
+          title={dictionary.content.viralityByType}
           points={content.map((row) => ({ label: row.contentType, value: row.viralityScore }))}
         />
       </section>
       <div style={{ height: 16 }} />
-      <DataTable title="Content performance table" columns={columns} rows={content} />
+      <DataTable emptyLabel={dictionary.common.noData} title={dictionary.content.tableTitle} columns={columns} rows={content} />
     </main>
   );
 }

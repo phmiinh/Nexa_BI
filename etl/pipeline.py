@@ -8,8 +8,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import requests
-
 from etl.extractors import ExtractError, extract_facebook, extract_json, extract_sample, extract_youtube
 from etl.load import load_csv, load_sql
 from etl.normalize import normalize_dataset
@@ -26,7 +24,6 @@ class PipelineResult:
     normalized_comments: int
     quality: QualityReport
     outputs: dict[str, Any]
-    used_sample_fallback: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -38,42 +35,40 @@ class PipelineResult:
             "normalized_comments": self.normalized_comments,
             "quality": self.quality.as_dict(),
             "outputs": self.outputs,
-            "used_sample_fallback": self.used_sample_fallback,
         }
 
 
-def extract_source(source: str, **kwargs: Any) -> tuple[dict[str, list[dict[str, Any]]], bool]:
+def extract_source(source: str, **kwargs: Any) -> dict[str, list[dict[str, Any]]]:
     if source == "sample":
-        return extract_sample(), False
+        return extract_sample()
     if source == "json":
-        return extract_json(kwargs["input_path"]), False
-    try:
-        if source == "facebook":
-            return extract_facebook(page_id=kwargs["page_id"], limit=kwargs.get("limit", 25)), False
-        if source == "youtube":
-            return extract_youtube(
-                channel_id=kwargs.get("channel_id"),
-                query=kwargs.get("query"),
-                limit=kwargs.get("limit", 25),
-            ), False
-    except (ExtractError, KeyError, requests.RequestException):
-        if kwargs.get("sample_fallback", True):
-            return extract_sample(), True
-        raise
+        return extract_json(kwargs["input_path"])
+    if source == "facebook":
+        return extract_facebook(page_id=kwargs["page_id"], limit=kwargs.get("limit", 25))
+    if source == "youtube":
+        return extract_youtube(
+            channel_id=kwargs.get("channel_id"),
+            query=kwargs.get("query"),
+            limit=kwargs.get("limit", 25),
+            comments_limit=kwargs.get("comments_limit", 20),
+            max_search_pages=kwargs.get("max_search_pages", 1),
+        )
     raise ValueError(f"unsupported source: {source}")
 
 
 def run_pipeline(
-    source: str = "sample",
+    source: str = "youtube",
     output_dir: str = "data/processed",
     database_url: str | None = None,
     fail_on_quality_error: bool = True,
+    run_source: str = "etl.cli",
     **extract_kwargs: Any,
 ) -> PipelineResult:
     run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-    raw, used_fallback = extract_source(source, **extract_kwargs)
-    actual_source = "sample" if used_fallback else source
-    raw_outputs = write_raw_jsonl(raw, actual_source, run_id)
+    raw = extract_source(source, **extract_kwargs)
+    if source == "youtube" and fail_on_quality_error and not raw.get("posts"):
+        raise ExtractError("youtube extraction returned no posts")
+    raw_outputs = write_raw_jsonl(raw, source, run_id)
     tables = normalize_dataset(raw)
     quality = check_quality(tables["posts"], tables["comments"])
     if fail_on_quality_error and not quality.passed:
@@ -81,7 +76,7 @@ def run_pipeline(
 
     outputs: dict[str, Any] = {"raw": raw_outputs, "csv": load_csv(tables, output_dir)}
     if database_url:
-        outputs["sql"] = load_sql(tables, database_url)
+        outputs["sql"] = load_sql(tables, database_url, run_source=run_source)
 
     return PipelineResult(
         run_id=run_id,
@@ -92,7 +87,6 @@ def run_pipeline(
         normalized_comments=len(tables["comments"]),
         quality=quality,
         outputs=outputs,
-        used_sample_fallback=used_fallback,
     )
 
 

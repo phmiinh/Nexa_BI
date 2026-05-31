@@ -1,26 +1,36 @@
 import Link from "next/link";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { NavLinks } from "@/components/NavLinks";
+import type { Locale } from "@/lib/i18n";
 
 const items = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/content", label: "Content" },
-  { href: "/sentiment", label: "Sentiment" },
-  { href: "/competitors", label: "Competitors" },
-  { href: "/posts", label: "Posts" },
-  { href: "/data-health", label: "Data health" }
-];
+  { href: "/dashboard", key: "dashboard" },
+  { href: "/content", key: "content" },
+  { href: "/sentiment", key: "sentiment" },
+  { href: "/competitors", key: "competitors" },
+  { href: "/posts", key: "posts" },
+  { href: "/data-health", key: "dataHealth" }
+] as const;
 
-export function AppNav() {
+type AppNavProps = {
+  locale: Locale;
+  labels: Record<(typeof items)[number]["key"] | "ariaLabel", string>;
+  languageLabels: {
+    label: string;
+    english: string;
+    vietnamese: string;
+  };
+};
+
+export function AppNav({ locale, labels, languageLabels }: AppNavProps) {
   return (
-    <nav className="app-nav" aria-label="Primary navigation">
+    <nav className="app-nav" aria-label={labels.ariaLabel}>
       <Link className="brand" href="/dashboard">
         SocialLens BI
       </Link>
-      <div className="nav-links">
-        {items.map((item) => (
-          <Link href={item.href} key={item.href}>
-            {item.label}
-          </Link>
-        ))}
+      <div className="nav-actions">
+        <NavLinks items={items.map((item) => ({ href: item.href, label: labels[item.key] }))} />
+        <LanguageSwitcher currentLocale={locale} labels={languageLabels} />
       </div>
     </nav>
   );

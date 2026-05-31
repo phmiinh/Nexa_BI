@@ -1,69 +1,70 @@
 # SocialLens BI Insights
 
-Nguon du lieu: export YouTube hien tai trong `dashboard/exports/*.csv` va `data/processed/*.csv`, cap nhat luc 2026-05-24. Pham vi phan tich: 2023-01-01 den 2026-05-19.
+Nguon du lieu: PostgreSQL warehouse `social_dw` va export moi trong `dashboard/exports/*.csv`.
+Cap nhat luc 2026-05-31. Pham vi phan tich: 2017-09-26 den 2026-05-31.
 
 ## 1. Baseline dieu hanh
 
-**Key finding:** YouTube da co baseline du dung cho dashboard dieu hanh, nhung engagement rate trung binh con thap so voi muc can co de tao tang truong huu co.
+**Key finding:** Dataset official-channel moi da tang manh ve comment coverage va du tot cho dashboard BI, nhung van nen trinh bay la YouTube-only.
 
 **Supporting data:**
-- 65 posts/video trong giai doan 2023-01-01 den 2026-05-19.
-- Tong reach dat 6.24M va tong engagement dat 1.15K.
-- Avg engagement rate tu export dieu hanh la 0.7435%.
+- Warehouse hien co 876 videos/posts va 1,692 comments.
+- Tong reach dat 167.40M, tong engagement dat 53.85K.
+- Avg engagement rate dat 1.8806%.
 
-**Recommended action:** Dung baseline nay lam moc sau moi lan refresh; uu tien muc tieu tang engagement rate truoc khi mo rong them kenh hoac tang tan suat dang.
+**Recommended action:** Dung snapshot moi lam source of truth cho dashboard, Power BI va bao cao; ghi ro day la YouTube-only va sample/mock khong con la runtime data source.
 
 ## 2. Hieu qua noi dung
 
-**Key finding:** Hieu qua noi dung dang bi chi phoi boi mot so video reach lon, trong khi noi dung Highlands co tin hieu engagement rate tot o mot vai video san pham.
+**Key finding:** Highlands van chi phoi reach, nhung Trung Nguyen Legend da co mau lon hon va dong gop phan lon engagement trong competitor set.
 
 **Supporting data:**
-- Top video toan tap dat 9,736 reach va 319 engagements.
-- Video Highlands tot nhat la "KHOE SAC THANG HUONG - TRA SEN VANG" voi 9,736 reach va 3.2765% engagement rate.
-- Nhom non-competitor trong export co 40 video, 6.22M reach va 1.10K engagements.
+- Highlands Coffee Vietnam co 123 posts, 160.78M reach va 10.34K engagement.
+- Trung Nguyen Legend co 600 posts, 5.79M reach, 35.84K engagement va avg engagement rate 2.2837%.
+- Top post theo engagement hien thuoc Trung Nguyen Legend voi 4,532 engagements.
 
-**Recommended action:** Tach benchmark giua owned brand va creator/industry video; voi Highlands, nhan rong motif san pham/co CTA cua cac video co engagement rate cao.
+**Recommended action:** Tach khuyen nghi theo muc tieu: Highlands phu hop awareness/reach, Trung Nguyen Legend phu hop benchmark ve volume, creative cadence va engagement.
 
 ## 3. Khung gio dang bai
 
-**Key finding:** Khung gio co engagement rate cao nhat khac voi khung gio tao tong engagement cao nhat, nen can tach muc tieu "chat luong tuong tac" va "volume tuong tac".
+**Key finding:** Heatmap sau batch official co nhieu mau hon, nhung van can doc theo brand vi Trung Nguyen chiem ty trong post lon.
 
 **Supporting data:**
-- Wednesday 12:00 dat 3.2765% engagement rate va 319 engagements.
-- Thursday 09:00 tao 261 engagements tu 1 post.
-- Saturday 22:00 dat 1.9496% engagement rate va 48 engagements.
+- Friday 07:00 co 4 posts va avg engagement rate 3.4456%.
+- Saturday 07:00 co 5 posts, 175 total engagement va avg engagement rate 3.0822%.
+- Thursday 20:00 co 7 posts, 1,145 total engagement va avg engagement rate 3.0207%.
 
-**Recommended action:** Chay test lich dang 4 tuan: Wednesday noon cho ca muc tieu volume va engagement rate, dong thoi thu them Thursday morning; chi ket luan sau khi moi slot co them du mau.
+**Recommended action:** Test lich dang trong 4-6 tuan cho Friday 07:00, Saturday 07:00 va Thursday 20:00; khi bao cao Power BI nen them slicer brand de tranh ket luan chung qua muc.
 
 ## 4. Sentiment va brand health
 
-**Key finding:** Sentiment hien nghieng manh ve neutral; negative thap nhung co mot diem can xu ly rieng ve trai nghiem cua hang.
+**Key finding:** Sentiment coverage da tang len muc dung duoc cho demo, nhung phan lon comment van neutral nen day la directional signal.
 
 **Supporting data:**
-- 15 comments, gom 3 positive, 11 neutral va 1 negative.
-- Positive ratio dat 20.00%; negative ratio dat 6.67%.
-- Negative spike xuat hien ngay 2026-04-27 tren Highlands Coffee Vietnam voi 1 negative comment.
+- 1,692 comments duoc classify sentiment.
+- 377 positive, 1,286 neutral, 29 negative.
+- Positive ratio dat 22.28%, negative ratio dat 1.71%.
 
-**Recommended action:** Tang cau hoi mo va CTA trong caption/video de keo positive comments; dong thoi phan hoi comment negative ngay 2026-04-27 va ghi nhan van de van hanh neu lien quan o cam/trai nghiem tai quan.
+**Recommended action:** Theo doi negative ratio theo ngay va theo brand; uu tien CTA trong video de tang positive comments thay vi chi toi uu view.
 
 ## 5. Competitor va share of voice
 
-**Key finding:** Highlands dan dau share of voice theo reach trong tap du lieu hien tai, nhung engagement SOV van thap hon nhieu so voi reach SOV.
+**Key finding:** Official competitor set da tot hon ve so luong, nhung reach SOV van bi Highlands chi phoi manh.
 
 **Supporting data:**
-- Highlands Coffee Vietnam co 25 posts va 6.20M reach.
-- Highlands reach SOV dat 99.40% va engagement SOV dat 82.02%.
-- Nhom competitor flag co 25 posts nhung chi 12.57K reach va 50 engagements.
+- Competitor group co 8 pages, 696 posts, 6.29M reach, 37.99K engagement va 1,286 comments.
+- Non-competitor group co 41 pages, 180 posts, 161.11M reach va 15.86K engagement.
+- Trung Nguyen Legend la competitor co mau tot nhat: 600 posts va 1,258 comments.
 
-**Recommended action:** Khong danh gia doi thu chi bang so luong post; can theo doi engagement SOV rieng cho owned brand, competitor chinh va creator/industry de co benchmark canh tranh dung hon.
+**Recommended action:** Bao cao SOV theo official brand pages; khong load broad curated query vao warehouse chinh vi probe query bi reject do 502 new non-official pages va 98.76% non-official reach.
 
 ## 6. Chat luong du lieu BI
 
-**Key finding:** Lop du lieu processed/export hien du sach de dung cho dashboard va notebook, nhung can tiep tuc kiem tra missing value sau moi lan ETL.
+**Key finding:** Lop warehouse sau batch official sach ve khoa tu nhien, quan he fact va KPI reconciliation.
 
 **Supporting data:**
-- 0 duplicate post natural keys va 0 duplicate comment natural keys.
-- 0 metric am trong cac cot reach, impressions, likes, comments, shares, engagement rate va virality score.
-- Processed layer co 65 posts, 15 comments va 11 page names.
+- Dashboard validation co 42 rows: 25 PASS, 17 INFO, 0 FAIL.
+- `fact_post` co 876 rows, `fact_sentiment` co 1,692 rows.
+- API/FE khong con static mock fallback; PostgreSQL la single source of truth.
 
-**Recommended action:** Giu data quality notebook la buoc bat buoc truoc khi cong bo report; neu refresh moi co duplicate, metric am hoac sentiment label khong hop le thi dung cap nhat dashboard cho den khi ETL duoc sua.
+**Recommended action:** Giu `python -m etl.cli quality --database-url $env:DATABASE_URL` la gate bat buoc truoc moi lan refresh exports va screenshot.

@@ -5,7 +5,7 @@ This guide is the final technical delivery runbook for SocialLens BI.
 Final delivery status:
 
 - ETL uses real YouTube data only for demo and warehouse runs.
-- Sample fallback is disabled with `--no-sample-fallback` for final ETL.
+- Automatic sample fallback is removed. Final ETL either loads real YouTube data into PostgreSQL or fails clearly.
 - Remote PostgreSQL is the preferred warehouse path.
 - Dashboard exports are generated from PostgreSQL views into `dashboard/exports/`.
 - Power BI is the primary BI dashboard deliverable; the Next.js dashboard is the companion web dashboard.
@@ -61,8 +61,8 @@ POSTGRES_PASSWORD=...
 DATABASE_URL=postgresql+psycopg://next:...@172.16.4.81:5432/nexabi
 SOCIALENS_DATABASE_URL=postgresql+psycopg://next:...@172.16.4.81:5432/nexabi
 YOUTUBE_API_KEY=...
-YOUTUBE_CHANNEL_IDS=UCHEqa2uTf8uXrGWrnU3ThgA,UCq6WR0wWNUuz53c4zeWSa8g
-YOUTUBE_QUERIES=The Coffee House Vietnam
+YOUTUBE_CHANNEL_IDS=UCHEqa2uTf8uXrGWrnU3ThgA,UCq6WR0wWNUuz53c4zeWSa8g,UCqSQSnkQ05fZaCdFMfnLaVw,UCPdzE8o7_ExH7Box2WPSEzw,UCBOjnWu1c_k2v0sEH_2foUg,UCAweoF7181qBWQcz0u8dNhQ,UCK8MrZ48N5EB6umonmj1g-A,UCHCrxNt9H3bDZegTdJznXtw
+YOUTUBE_QUERIES=
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
@@ -91,7 +91,7 @@ $env:YOUTUBE_API_KEY
 Use this PowerShell sequence for the final technical delivery:
 
 ```powershell
-python -m etl.cli run --sources youtube --no-sample-fallback --database-url $env:DATABASE_URL
+python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 python -m etl.cli quality --database-url $env:DATABASE_URL
 python -m etl.cli export --database-url $env:DATABASE_URL
 ```
@@ -187,7 +187,7 @@ Additional verified routes:
 - `http://localhost:3000/posts`
 - `http://localhost:3000/data-health`
 
-The frontend has static fallback JSON for development, but the final delivery should be demonstrated with the Django API running against the remote PostgreSQL warehouse.
+The frontend does not use static fallback JSON. The Django API and dashboard use the PostgreSQL warehouse as the single source of truth.
 
 ## 8. Power BI Build
 
@@ -226,7 +226,7 @@ Remote PostgreSQL is the final delivery path. Local Docker is optional for devel
 
 ```powershell
 docker compose up -d db
-python -m etl.cli run --sources youtube --no-sample-fallback --database-url $env:DATABASE_URL
+python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 python -m etl.cli quality --database-url $env:DATABASE_URL
 python -m etl.cli export --database-url $env:DATABASE_URL
 ```
@@ -235,7 +235,7 @@ python -m etl.cli export --database-url $env:DATABASE_URL
 
 Collect these before submission:
 
-- Terminal output showing successful real YouTube ETL with `--no-sample-fallback`.
+- Terminal output showing successful real YouTube ETL.
 - Terminal output showing successful quality checks.
 - `dashboard/exports/` CSV files refreshed from the remote warehouse.
 - Power BI `.pbix` saved under `dashboard/power_bi/`.

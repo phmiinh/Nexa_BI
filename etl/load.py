@@ -19,7 +19,12 @@ def load_csv(tables: dict[str, pd.DataFrame], output_dir: str | Path) -> dict[st
     return outputs
 
 
-def load_sql(tables: dict[str, pd.DataFrame], database_url: str, if_exists: str = "replace") -> dict[str, int]:
+def load_sql(
+    tables: dict[str, pd.DataFrame],
+    database_url: str,
+    if_exists: str = "replace",
+    run_source: str = "etl.cli",
+) -> dict[str, int]:
     try:
         from sqlalchemy import create_engine, text
     except ImportError as exc:
@@ -57,7 +62,7 @@ def load_sql(tables: dict[str, pd.DataFrame], database_url: str, if_exists: str 
                 """
             ),
             {
-                "source": "etl.cli",
+                "source": run_source,
                 "extracted_posts": len(posts),
                 "extracted_comments": len(comments),
                 "loaded_posts": len(posts),
@@ -159,7 +164,16 @@ def upsert_content_types(connection: Any, posts: pd.DataFrame) -> dict[str, int]
 
 
 def is_competitor(page_name: str) -> bool:
-    return page_name.strip().lower() in {"phuc long", "the coffee house"}
+    normalized = page_name.strip().lower()
+    return normalized in {
+        "phuc long",
+        "the coffee house",
+        "cong caphe",
+        "starbucksvietnam",
+        "starbucks vietnam",
+        "gong cha vietnam",
+        "cheese coffee",
+    } or normalized.startswith(("trung", "starbucks", "koi"))
 
 
 def upsert_pages(
@@ -215,12 +229,13 @@ def upsert_times(connection: Any, posts: pd.DataFrame, comments: pd.DataFrame) -
     from sqlalchemy import text
 
     values = list(posts["posted_at"]) + list(comments["commented_at"])
-    seen: set[int] = set()
+    payloads: dict[int, dict[str, Any]] = {}
     for value in values:
         payload = time_payload(value)
-        if payload["time_id"] in seen:
+        if payload["time_id"] in payloads:
             continue
-        seen.add(payload["time_id"])
+        payloads[payload["time_id"]] = payload
+    if payloads:
         connection.execute(
             text(
                 """
@@ -237,9 +252,9 @@ def upsert_times(connection: Any, posts: pd.DataFrame, comments: pd.DataFrame) -
                 ON CONFLICT (time_id) DO NOTHING
                 """
             ),
-            payload,
+            list(payloads.values()),
         )
-    return {key: key for key in seen}
+    return {key: key for key in payloads}
 
 
 def upsert_posts(
@@ -252,10 +267,27 @@ def upsert_posts(
 ) -> dict[tuple[str, str], int]:
     from sqlalchemy import text
 
+    payloads: list[dict[str, Any]] = []
     for row in posts.to_dict("records"):
         platform = str(row["platform"]).lower()
         external_page_id = str(row["page_id"] or row["page_name"])
         timestamp_key = time_key(row["posted_at"])
+        payloads.append(
+            {
+                "external_post_id": row["post_id"],
+                "platform_id": platform_ids[platform],
+                "time_id": time_ids[timestamp_key],
+                "content_type_id": content_type_ids[str(row["content_type"]).lower()],
+                "page_id": page_ids[(platform, external_page_id)],
+                "caption": row["content_text"],
+                "reach": int(row["reach"]),
+                "impressions": int(row["impressions"]),
+                "likes": int(row["likes"]),
+                "comments": int(row["comments_count"]),
+                "shares": int(row["shares"]),
+            }
+        )
+    if payloads:
         connection.execute(
             text(
                 """
@@ -280,19 +312,7 @@ def upsert_posts(
                     loaded_at = now()
                 """
             ),
-            {
-                "external_post_id": row["post_id"],
-                "platform_id": platform_ids[platform],
-                "time_id": time_ids[timestamp_key],
-                "content_type_id": content_type_ids[str(row["content_type"]).lower()],
-                "page_id": page_ids[(platform, external_page_id)],
-                "caption": row["content_text"],
-                "reach": int(row["reach"]),
-                "impressions": int(row["impressions"]),
-                "likes": int(row["likes"]),
-                "comments": int(row["comments_count"]),
-                "shares": int(row["shares"]),
-            },
+            payloads,
         )
     rows = connection.execute(
         text(
@@ -315,13 +335,25 @@ def upsert_sentiments(
 ) -> int:
     from sqlalchemy import text
 
-    loaded = 0
+    payloads: list[dict[str, Any]] = []
     for row in comments.to_dict("records"):
         platform = str(row["platform"]).lower()
         post_key = (platform, str(row["post_id"]))
         if post_key not in post_ids:
             continue
         timestamp_key = time_key(row["commented_at"])
+        payloads.append(
+            {
+                "external_comment_id": row["comment_id"],
+                "post_id": post_ids[post_key],
+                "platform_id": platform_ids[platform],
+                "time_id": time_ids[timestamp_key],
+                "sentiment_label": row["sentiment_label"],
+                "sentiment_score": float(row["sentiment_score"]),
+                "comment_text": row["comment_text"],
+            }
+        )
+    if payloads:
         connection.execute(
             text(
                 """
@@ -342,15 +374,6 @@ def upsert_sentiments(
                     loaded_at = now()
                 """
             ),
-            {
-                "external_comment_id": row["comment_id"],
-                "post_id": post_ids[post_key],
-                "platform_id": platform_ids[platform],
-                "time_id": time_ids[timestamp_key],
-                "sentiment_label": row["sentiment_label"],
-                "sentiment_score": float(row["sentiment_score"]),
-                "comment_text": row["comment_text"],
-            },
+            payloads,
         )
-        loaded += 1
-    return loaded
+    return len(payloads)

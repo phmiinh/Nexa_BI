@@ -1,12 +1,3 @@
-import competitorsFallback from "@/data/competitors.json";
-import contentFallback from "@/data/content-performance.json";
-import engagementFallback from "@/data/engagement.json";
-import heatmapFallback from "@/data/heatmap.json";
-import insightsFallback from "@/data/insights.json";
-import overviewFallback from "@/data/overview.json";
-import postsFallback from "@/data/posts.json";
-import sentimentFallback from "@/data/sentiment.json";
-import syncStatusFallback from "@/data/sync-status.json";
 import type {
   BIInsights,
   Competitor,
@@ -21,31 +12,32 @@ import type {
   SourceConfidence,
   SyncStatus
 } from "@/lib/types";
+import { getDictionary, type Locale } from "@/lib/i18n";
 
-async function fetchApi<T>(endpoint: string, fallback: T, transform?: (payload: unknown) => T): Promise<T> {
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+async function fetchApi<T>(endpoint: string, transform?: (payload: unknown) => T): Promise<T> {
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  const isStatusEndpoint = endpoint.startsWith("/api/v1/sync/status/");
 
-  if (!apiBaseUrl) {
-    return fallback;
-  }
-
-  try {
-    const response = await fetch(`${apiBaseUrl}${endpoint}`, {
-      cache: "no-store",
-      headers: {
-        accept: "application/json"
-      }
-    });
-
-    if (!response.ok) {
-      return fallback;
+  const response = await fetch(`${apiBaseUrl}${endpoint}`, {
+    ...(isStatusEndpoint ? { cache: "no-store" as const } : { next: { revalidate: 900 } }),
+    headers: {
+      accept: "application/json"
     }
+  });
 
-    const payload = await response.json();
-    return transform ? transform(payload) : (payload as T);
-  } catch {
-    return fallback;
+  if (!response.ok) {
+    let detail = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      detail = String(asRecord(payload).detail || detail);
+    } catch {
+      // Keep the HTTP status text when the API error body is not JSON.
+    }
+    throw new Error(`SocialLens API request failed for ${endpoint}: ${detail}`);
   }
+
+  const payload = await response.json();
+  return transform ? transform(payload) : (payload as T);
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -70,13 +62,13 @@ function stringValue(value: unknown): string {
   return String(value ?? "");
 }
 
-function sourceConfidenceValue(value: unknown, fallbackSource: string): SourceConfidence {
+function sourceConfidenceValue(value: unknown, sourceName: string): SourceConfidence {
   const record = asRecord(value);
   const level = stringValue(record.level || "medium");
   return {
     level: level === "high" || level === "low" ? level : "medium",
     score: numberValue(record.score || 0.7),
-    detail: stringValue(record.detail || record.reason || `Loaded from ${fallbackSource}`)
+    detail: stringValue(record.detail || record.reason || `Loaded from ${sourceName}`)
   };
 }
 
@@ -96,70 +88,82 @@ function percentText(value: unknown): string {
   return `${numberValue(value).toFixed(1)}%`;
 }
 
-function compactText(value: unknown): string {
-  return Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(
+function compactText(value: unknown, locale: Locale): string {
+  return Intl.NumberFormat(locale === "vi" ? "vi-VN" : "en", { notation: "compact", maximumFractionDigits: 1 }).format(
     numberValue(value)
   );
 }
 
-function normalizeOverview(payload: unknown): Overview {
+function normalizeOverview(payload: unknown, locale: Locale): Overview {
+  const dictionary = getDictionary(locale);
   const record = asRecord(payload);
-  if (Array.isArray(record.kpis)) {
-    return record as Overview;
-  }
   const dateFrom = stringValue(record.date_from);
   const dateTo = stringValue(record.date_to);
   return {
-    dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : "Processed dataset",
+    dateRange: dateFrom && dateTo ? `${dateFrom} to ${dateTo}` : dictionary.overview.dateRangeFallback,
     kpis: [
       {
-        label: "Total engagement",
-        value: compactText(record.total_engagement),
-        delta: "SQL validated",
+        label: dictionary.overview.kpis.totalEngagement,
+        value: compactText(record.total_engagement, locale),
+        delta: dictionary.common.sqlValidated,
         tone: "positive"
       },
       {
-        label: "Engagement rate",
+        label: dictionary.overview.kpis.engagementRate,
         value: percentText(record.avg_engagement_rate),
-        delta: "avg",
+        delta: dictionary.common.average,
         tone: "positive"
       },
       {
-        label: "Virality score",
+        label: dictionary.overview.kpis.viralityScore,
         value: percentText(record.avg_virality_score),
-        delta: "avg",
+        delta: dictionary.common.average,
         tone: "neutral"
       },
       {
-        label: "Total reach",
-        value: compactText(record.total_reach),
-        delta: "warehouse",
+        label: dictionary.overview.kpis.totalReach,
+        value: compactText(record.total_reach, locale),
+        delta: dictionary.common.warehouse,
         tone: "positive"
       }
     ],
-    finding: {
-      title: "Warehouse metrics are available",
-      body: "Dashboard values are loaded from SocialLens BI processed data or PostgreSQL views.",
-      action: "Use Power BI and SQL validation queries to confirm the final submission metrics."
-    }
+    finding: dictionary.overview.finding
   };
 }
 
 function normalizeEngagement(payload: unknown): EngagementPoint[] {
-  return resultArray(payload).map((item) => ({
-    date: stringValue(item.full_date ?? item.date),
-    engagementRate: numberValue(item.avg_engagement_rate ?? item.engagementRate),
-    reach: numberValue(item.total_reach ?? item.reach)
-  }));
+  return sortByDate(
+    resultArray(payload).map((item) => ({
+      date: stringValue(item.full_date ?? item.date),
+      engagementRate: numberValue(item.avg_engagement_rate ?? item.engagementRate),
+      reach: numberValue(item.total_reach ?? item.reach)
+    }))
+  );
 }
 
 function normalizeSentiment(payload: unknown): SentimentPoint[] {
-  return resultArray(payload).map((item) => ({
-    date: stringValue(item.full_date ?? item.date),
-    positive: numberValue(item.positive_count ?? item.positive),
-    neutral: numberValue(item.neutral_count ?? item.neutral),
-    negative: numberValue(item.negative_count ?? item.negative)
-  }));
+  return sortByDate(
+    resultArray(payload).map((item) => {
+      const positiveCount = numberValue(item.positive_count ?? item.positive);
+      const neutralCount = numberValue(item.neutral_count ?? item.neutral);
+      const negativeCount = numberValue(item.negative_count ?? item.negative);
+      const total = positiveCount + neutralCount + negativeCount;
+      return {
+        date: stringValue(item.full_date ?? item.date),
+        positive: item.positive_pct === undefined ? ratioPct(positiveCount, total) : numberValue(item.positive_pct),
+        neutral: item.neutral_pct === undefined ? ratioPct(neutralCount, total) : numberValue(item.neutral_pct),
+        negative: item.negative_pct === undefined ? ratioPct(negativeCount, total) : numberValue(item.negative_pct)
+      };
+    })
+  );
+}
+
+function ratioPct(value: number, total: number): number {
+  return total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0;
+}
+
+function sortByDate<T extends { date: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
 }
 
 function normalizeContent(payload: unknown): ContentPerformance[] {
@@ -198,9 +202,10 @@ function normalizePosts(payload: unknown): Post[] {
   }));
 }
 
-function normalizeHeatmap(payload: unknown): HeatmapCell[] {
+function normalizeHeatmap(payload: unknown, locale: Locale): HeatmapCell[] {
+  const days = getDictionary(locale).common.days;
   return resultArray(payload).map((item) => ({
-    day: stringValue(item.day_name ?? item.day),
+    day: days[stringValue(item.day_name ?? item.day) as keyof typeof days] || stringValue(item.day_name ?? item.day),
     hour: stringValue(item.hour_of_day ?? item.hour),
     engagementRate: numberValue(item.avg_engagement_rate ?? item.engagementRate)
   }));
@@ -213,12 +218,12 @@ function normalizeSyncStatus(payload: unknown): SyncStatus {
     return {
       ...syncStatus,
       freshness: syncStatus.freshness || freshnessValue(record.freshness, syncStatus.lastRunAt),
-      sourceConfidence:
-        syncStatus.sourceConfidence || sourceConfidenceValue(record.sourceConfidence, syncStatus.source)
+      sourceConfidence: syncStatus.sourceConfidence || sourceConfidenceValue(record.sourceConfidence, syncStatus.source)
     };
   }
   const lastRunAt = stringValue(record.finished_at ?? record.posts_modified_at ?? "n/a");
-  const source = stringValue(record.source ?? record.source_type ?? "processed_csv");
+  const sourceType = stringValue(record.source_type);
+  const source = sourceType || stringValue(record.source ?? "warehouse");
   const counts = asRecord(record.counts);
   return {
     status: stringValue(record.status || "available"),
@@ -251,15 +256,22 @@ function normalizeInsightItems(value: unknown): InsightItem[] {
   }));
 }
 
-function normalizeInsights(payload: unknown): BIInsights {
+function normalizeInsights(payload: unknown, locale: Locale): BIInsights {
+  const dictionary = getDictionary(locale);
   const record = asRecord(asRecord(payload).result || payload);
   const generatedAt = stringValue(record.generatedAt || record.generated_at || new Date().toISOString());
-  const source = stringValue(record.source || "api");
+  const source = stringValue(record.source || "warehouse");
   const apiInsights = asArray(record.insights);
   const apiHighlights = apiInsights.map((item) => ({
-    title: stringValue(item.title),
-    detail: stringValue(item.message || item.detail),
-    metric: item.type ? stringValue(item.type) : undefined,
+    title:
+      dictionary.dashboard.insightTitles[
+        stringValue(item.type) as keyof typeof dictionary.dashboard.insightTitles
+      ] || stringValue(item.title),
+    detail:
+      dictionary.dashboard.insightDetails[
+        stringValue(item.type) as keyof typeof dictionary.dashboard.insightDetails
+      ] || stringValue(item.message || item.detail),
+    metric: undefined,
     tone: "neutral" as const
   }));
   return {
@@ -275,22 +287,22 @@ function normalizeInsights(payload: unknown): BIInsights {
   };
 }
 
-export function getOverview(): Promise<Overview> {
-  return fetchApi("/api/v1/analytics/overview/", overviewFallback as Overview, normalizeOverview);
+export function getOverview(locale: Locale): Promise<Overview> {
+  return fetchApi("/api/v1/analytics/overview/", (payload) =>
+    normalizeOverview(payload, locale)
+  );
 }
 
-export function getEngagement(): Promise<EngagementPoint[]> {
+export function getEngagement(limit = 120): Promise<EngagementPoint[]> {
   return fetchApi(
-    "/api/v1/analytics/engagement/",
-    engagementFallback as EngagementPoint[],
+    `/api/v1/analytics/engagement/?limit=${limit}`,
     normalizeEngagement
   );
 }
 
-export function getSentiment(): Promise<SentimentPoint[]> {
+export function getSentiment(limit = 120): Promise<SentimentPoint[]> {
   return fetchApi(
-    "/api/v1/analytics/sentiment/",
-    sentimentFallback as SentimentPoint[],
+    `/api/v1/analytics/sentiment/?limit=${limit}`,
     normalizeSentiment
   );
 }
@@ -298,7 +310,6 @@ export function getSentiment(): Promise<SentimentPoint[]> {
 export function getContentPerformance(): Promise<ContentPerformance[]> {
   return fetchApi(
     "/api/v1/analytics/content-performance/",
-    contentFallback as ContentPerformance[],
     normalizeContent
   );
 }
@@ -306,27 +317,30 @@ export function getContentPerformance(): Promise<ContentPerformance[]> {
 export function getCompetitors(): Promise<Competitor[]> {
   return fetchApi(
     "/api/v1/analytics/competitors/",
-    competitorsFallback as Competitor[],
     normalizeCompetitors
   );
 }
 
-export function getPosts(): Promise<Post[]> {
-  return fetchApi("/api/v1/posts/", postsFallback as Post[], normalizePosts);
+export function getPosts(limit = 100): Promise<Post[]> {
+  return fetchApi(`/api/v1/posts/?limit=${limit}`, normalizePosts);
 }
 
 export function getTopPosts(): Promise<Post[]> {
-  return fetchApi("/api/v1/analytics/top-posts/", postsFallback as Post[], normalizePosts);
+  return fetchApi("/api/v1/analytics/top-posts/", normalizePosts);
 }
 
-export function getHeatmap(): Promise<HeatmapCell[]> {
-  return fetchApi("/api/v1/analytics/heatmap/", heatmapFallback as HeatmapCell[], normalizeHeatmap);
+export function getHeatmap(locale: Locale): Promise<HeatmapCell[]> {
+  return fetchApi("/api/v1/analytics/heatmap/", (payload) =>
+    normalizeHeatmap(payload, locale)
+  );
 }
 
 export function getSyncStatus(): Promise<SyncStatus> {
-  return fetchApi("/api/v1/sync/status/", syncStatusFallback as SyncStatus, normalizeSyncStatus);
+  return fetchApi("/api/v1/sync/status/", normalizeSyncStatus);
 }
 
-export function getInsights(): Promise<BIInsights> {
-  return fetchApi("/api/v1/analytics/insights/", insightsFallback as BIInsights, normalizeInsights);
+export function getInsights(locale: Locale): Promise<BIInsights> {
+  return fetchApi("/api/v1/analytics/insights/", (payload) =>
+    normalizeInsights(payload, locale)
+  );
 }

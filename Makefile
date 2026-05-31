@@ -4,6 +4,7 @@ export
 endif
 
 PYTHON ?= python
+OFFICIAL_YOUTUBE_CHANNEL_IDS ?= UCHEqa2uTf8uXrGWrnU3ThgA,UCq6WR0wWNUuz53c4zeWSa8g,UCqSQSnkQ05fZaCdFMfnLaVw,UCPdzE8o7_ExH7Box2WPSEzw,UCBOjnWu1c_k2v0sEH_2foUg,UCAweoF7181qBWQcz0u8dNhQ,UCK8MrZ48N5EB6umonmj1g-A,UCHCrxNt9H3bDZegTdJznXtw
 
 .PHONY: setup up down db require-database-url require-youtube-api-key etl load test lint format demo demo-local quality export api-check api frontend frontend-build
 
@@ -28,7 +29,7 @@ require-youtube-api-key:
 	$(PYTHON) -c "import os, sys; sys.exit(0 if os.getenv('YOUTUBE_API_KEY') else 'YOUTUBE_API_KEY is required for real YouTube ETL. Set it in .env or use explicit sample/dev commands.')"
 
 etl: require-database-url require-youtube-api-key
-	$(PYTHON) -m etl.cli run --sources youtube --no-sample-fallback --database-url "$(DATABASE_URL)"
+	$(PYTHON) -m etl.cli run --sources youtube --channel-ids "$(OFFICIAL_YOUTUBE_CHANNEL_IDS)" --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url "$(DATABASE_URL)"
 
 load: require-database-url
 	$(PYTHON) -m etl.cli load --database-url "$(DATABASE_URL)"
@@ -63,7 +64,7 @@ format:
 	$(PYTHON) -m ruff check --fix .
 
 demo: require-database-url require-youtube-api-key
-	$(PYTHON) -m etl.cli run --sources youtube --no-sample-fallback --database-url "$(DATABASE_URL)"
+	$(PYTHON) -m etl.cli run --sources youtube --channel-ids "$(OFFICIAL_YOUTUBE_CHANNEL_IDS)" --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url "$(DATABASE_URL)"
 	$(PYTHON) -m etl.cli quality --database-url "$(DATABASE_URL)"
 	$(PYTHON) -m etl.cli export --database-url "$(DATABASE_URL)"
 

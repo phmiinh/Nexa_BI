@@ -10,9 +10,11 @@ type DataTableProps<T> = {
   title: string;
   columns: Column<T>[];
   rows: T[];
+  emptyLabel?: string;
+  rowKey?: (row: T, index: number) => string;
 };
 
-export function DataTable<T>({ title, columns, rows }: DataTableProps<T>) {
+export function DataTable<T>({ title, columns, rows, emptyLabel = "No data available", rowKey }: DataTableProps<T>) {
   return (
     <section className="panel table-panel">
       <div className="panel-header">
@@ -28,13 +30,21 @@ export function DataTable<T>({ title, columns, rows }: DataTableProps<T>) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {columns.map((column) => (
-                  <td key={column.key}>{column.render(row)}</td>
-                ))}
+            {rows.length ? (
+              rows.map((row, rowIndex) => (
+                <tr key={rowKey ? rowKey(row, rowIndex) : rowIndex}>
+                  {columns.map((column) => (
+                    <td key={column.key}>{column.render(row)}</td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="empty-cell" colSpan={columns.length}>
+                  {emptyLabel}
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

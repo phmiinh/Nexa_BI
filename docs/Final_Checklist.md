@@ -8,15 +8,15 @@ Use this checklist for the final SocialLens BI technical handoff.
 - [ ] `DATABASE_URL` points to the remote PostgreSQL database.
 - [ ] `SOCIALENS_DATABASE_URL` points to the same remote warehouse for the Django API.
 - [ ] `YOUTUBE_API_KEY` is set.
-- [ ] `YOUTUBE_CHANNEL_IDS` and/or `YOUTUBE_QUERIES` are set for the final YouTube scope.
+- [ ] `YOUTUBE_CHANNEL_IDS` is set for the final official-channel YouTube scope.
 - [ ] `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` is set for the dashboard demo.
 
 ## Final ETL
 
-- [ ] Ran real YouTube ETL with no sample fallback:
+- [ ] Ran real YouTube ETL:
 
 ```powershell
-python -m etl.cli run --sources youtube --no-sample-fallback --database-url $env:DATABASE_URL
+python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 ```
 
 - [ ] Confirmed the run did not use sample data.
@@ -55,11 +55,18 @@ python backend\manage.py check
 ```powershell
 cd frontend
 npm run build
+npm test
 cd ..
 ```
 
 - [ ] Dashboard demo is running at `http://localhost:3000/dashboard`.
-- [ ] API-backed dashboard pages load without relying on static fallback data.
+- [ ] API-backed dashboard pages load from PostgreSQL with no static fallback data.
+- [ ] Optional live YouTube contract test passes when quota/key are available:
+
+```powershell
+$env:RUN_YOUTUBE_LIVE_TESTS="1"
+python -m pytest tests/test_youtube_live_contract.py -q
+```
 
 ## Power BI
 
@@ -77,7 +84,7 @@ cd ..
 
 ## Submission Evidence
 
-- [ ] Terminal evidence for real YouTube ETL with `--no-sample-fallback`.
+- [ ] Terminal evidence for successful real YouTube ETL.
 - [ ] Terminal evidence for quality checks.
 - [ ] Refreshed files in `dashboard/exports/`.
 - [ ] Power BI `.pbix` file.

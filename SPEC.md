@@ -10,7 +10,7 @@ This file is the implementation source of truth. Any intentional change to scope
 
 - Industry: F&B
 - Main brand: Highlands Coffee
-- Competitors: Phuc Long, The Coffee House
+- Competitors: Phuc Long, The Coffee House, Trung Nguyen Legend, Cong Caphe, Starbucks Vietnam, Gong Cha Vietnam, Cheese Coffee, KOI The Vietnam
 - Primary real platform: YouTube
 - Sample mode: YouTube/F&B synthetic data for local development and automated tests only
 - Facebook Graph API is not required for the MVP
@@ -18,12 +18,12 @@ This file is the implementation source of truth. Any intentional change to scope
 
 ## 3. Data Strategy
 
-The project uses YouTube real API extraction as the production/demo data source. Sample data remains available for development and automated tests, but the primary `make etl` and `make demo` workflows must run with sample fallback disabled because a real YouTube API key is available.
+The project uses YouTube real API extraction as the production/demo data source. Sample data remains available only for explicit development and automated test runs. The primary `make etl` and `make demo` workflows run real YouTube extraction and fail clearly when credentials or configured sources are unavailable.
 
 Extraction priority:
 
 1. YouTube Data API, when `YOUTUBE_API_KEY` and `YOUTUBE_CHANNEL_IDS` or `YOUTUBE_QUERIES` are configured.
-2. Deterministic YouTube/F&B sample fallback, available only for local development, tests, and explicit fallback runs.
+2. Deterministic YouTube/F&B sample mode, available only for local development, tests, and explicit sample runs.
 3. Facebook Graph API is optional and out of MVP scope because of Page permission and App Review risk.
 
 Raw records must be stored as JSONL under `data/raw/{source}/` by `run_id`. Processed outputs must be written under `data/processed/` as CSV files so Power BI can import data even when the database connection is unavailable.
@@ -122,7 +122,7 @@ Next.js pages:
 - `/posts`
 - `/data-health`
 
-Next.js must consume Django API first and use static JSON fallback if API data is unavailable.
+Next.js must consume the Django API backed by PostgreSQL as the runtime source of truth. Static JSON fallback data must not be used in the final dashboard.
 
 ## 9. API Requirements
 
@@ -165,7 +165,7 @@ Required docs:
 ETL tests:
 
 - Mock YouTube success, HTTP error, timeout, and pagination.
-- Missing credentials fail when `--no-sample-fallback` is enabled.
+- Missing credentials fail for production/demo YouTube runs.
 - Explicit fallback mode uses YouTube/F&B sample data for local tests.
 - Normalization handles timestamps, nulls, duplicates, and engagement formulas.
 - Load is idempotent.
@@ -185,7 +185,7 @@ SQL validation:
 
 Smoke test:
 
-- `make demo` creates schema, runs real YouTube ETL with fallback disabled, runs quality checks, writes processed CSVs, and exports dashboard-ready data.
+- `make demo` creates schema, runs real YouTube ETL, runs quality checks, writes processed CSVs, and exports dashboard-ready data.
 
 ## 12. Agent Coordination Policy
 
