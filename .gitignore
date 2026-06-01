@@ -13,11 +13,4 @@ dist/
 build/
 logs/
 *.log
-warehouse/*.db
-.django-api.sqlite3
 data/raw/**/*.jsonl
-data/processed/**/*.csv
-data/processed/**/*.json
-dashboard/exports/**/*.csv
-dashboard/exports/**/*.json
-*.pbix

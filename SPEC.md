@@ -1,79 +1,45 @@
-# SocialLens BI Specification
+# SocialLens BI Implementation Specification
 
-## 1. Project Intent
+This file records the implemented MVP contract derived from `ROADMAP.md` and `DESIGN.md`.
+Those documents remain the planning source, but the final delivery intentionally narrows scope where needed for a reliable BI capstone handoff.
 
-SocialLens BI is a Business Intelligence capstone project for analyzing social media performance for an F&B brand. The project follows `README.md` and `ROADMAP.md` as the business scope. `DESIGN.md` is used only as technical guidance for Python, Django, Next.js, PostgreSQL, and dashboard implementation.
+## Scope
 
-This file is the implementation source of truth. Any intentional change to scope, architecture, schema, API, dashboard, tests, or deliverables must be recorded in `STATUS.md`.
+- Industry: F&B.
+- Primary brand: Highlands Coffee Vietnam.
+- Runtime platform: YouTube only.
+- Runtime data source: real YouTube API data from approved official channels.
+- Source of truth: PostgreSQL warehouse schema `social_dw`.
+- Sample data: dev/test only, never an automatic runtime fallback.
+- Power BI: primary BI dashboard deliverable.
+- Next.js: companion web dashboard.
 
-## 2. Case Study
+Approved active YouTube pages:
 
-- Industry: F&B
-- Main brand: Highlands Coffee
-- Competitors: Phuc Long, The Coffee House, Trung Nguyen Legend, Cong Caphe, Starbucks Vietnam, Gong Cha Vietnam, Cheese Coffee, KOI The Vietnam
-- Primary real platform: YouTube
-- Sample mode: YouTube/F&B synthetic data for local development and automated tests only
-- Facebook Graph API is not required for the MVP
-- Extension platforms: TikTok and Instagram, only if data is available after the MVP works
+- Highlands Coffee Vietnam.
+- Trung Nguyen Legend.
+- Phuc Long.
+- Cong Caphe.
+- Cheese Coffee.
+- KOI The Vietnam.
+- Gong Cha Vietnam.
+- Starbucks Viet Nam.
 
-## 3. Data Strategy
+The Coffee House is excluded from the cleaned official-channel warehouse until a reliable official YouTube channel ID is available.
 
-The project uses YouTube real API extraction as the production/demo data source. Sample data remains available only for explicit development and automated test runs. The primary `make etl` and `make demo` workflows run real YouTube extraction and fail clearly when credentials or configured sources are unavailable.
+## Data Contract
 
-Extraction priority:
+Required warehouse facts:
 
-1. YouTube Data API, when `YOUTUBE_API_KEY` and `YOUTUBE_CHANNEL_IDS` or `YOUTUBE_QUERIES` are configured.
-2. Deterministic YouTube/F&B sample mode, available only for local development, tests, and explicit sample runs.
-3. Facebook Graph API is optional and out of MVP scope because of Page permission and App Review risk.
+- `social_dw.fact_post`: one row per YouTube video/post.
+- `social_dw.fact_sentiment`: one row per loaded comment with sentiment.
 
-Raw records must be stored as JSONL under `data/raw/{source}/` by `run_id`. Processed outputs must be written under `data/processed/` as CSV files so Power BI can import data even when the database connection is unavailable.
+Required warehouse dimensions:
 
-## 4. Business Questions
-
-The BI deliverables must answer these questions:
-
-- Which content performs best by engagement, reach, virality, and sentiment?
-- Is customer sentiment positive, neutral, or negative over time?
-- What are competitors doing better than the main brand?
-- Which posting time, platform, and content type should the brand prioritize?
-- How does share of voice change against competitors?
-
-## 5. Canonical KPIs
-
-All notebooks, SQL, API responses, Power BI visuals, and Next.js dashboard widgets must use these definitions:
-
-- `engagement_count = likes + comments + shares + saves`
-- `engagement_rate = engagement_count / reach * 100`
-- `virality_score = shares / reach * 100`
-- `sentiment_ratio = positive_comments / total_comments * 100`
-- `reach_growth = (current_reach - previous_reach) / previous_reach * 100`
-- `share_of_voice = brand_mentions / total_industry_mentions * 100`
-
-Rules:
-
-- Use `NULL` for rates when the denominator is zero or missing.
-- Store timestamps in UTC; dashboard and SQL analysis should present Vietnam time using `Asia/Ho_Chi_Minh`.
-- Insights must include one key finding, two or three supporting numbers, a date range, and a recommended action.
-
-## 6. Data Warehouse
-
-Warehouse engine: PostgreSQL 16.
-
-Schema: `social_dw`.
-
-Required star schema:
-
-- `dim_time`
-- `dim_platform`
-- `dim_content_type`
-- `dim_page`
-- `fact_post`
-- `fact_sentiment`
-
-Fact grains:
-
-- `fact_post`: one row per social media post/video.
-- `fact_sentiment`: one row per comment with sentiment.
+- `social_dw.dim_time`
+- `social_dw.dim_platform`
+- `social_dw.dim_content_type`
+- `social_dw.dim_page`
 
 Required analytical views:
 
@@ -85,53 +51,55 @@ Required analytical views:
 - `vw_posting_time_heatmap`
 - `vw_viral_posts`
 
-## 7. ETL Requirements
+Natural key rules:
 
-The ETL pipeline must be runnable from the command line and through `make demo`.
+- Posts deduplicate by `(platform_id, external_post_id)`.
+- Comments deduplicate by `(platform_id, external_comment_id)`.
+- ETL should upsert existing rows and avoid duplicate fact records.
 
-Required behavior:
+## KPI Definitions
 
-- Extract real YouTube API data when credentials exist.
-- Fail production/demo ETL runs when YouTube credentials, channel ids, queries, or API calls fail.
-- Fall back to deterministic sample data only when an explicit dev/test fallback run is requested.
-- Normalize posts and comments to shared schemas.
-- Deduplicate by `(platform, external_id)`.
-- Compute KPI fields consistently.
-- Run rule-based Vietnamese sentiment fallback without heavy model downloads.
-- Upsert into PostgreSQL without duplicating fact rows.
-- Record each run in an ETL audit table or a status artifact.
-- Export processed CSV files for Power BI.
+- `engagement_count = likes + comments + shares + saves`
+- `engagement_rate = engagement_count / reach * 100`
+- `virality_score = shares / reach * 100`
+- `sentiment_ratio = positive_comments / total_comments * 100`
+- `share_of_voice = page reach / total scoped reach * 100`
 
-## 8. Dashboard Requirements
+MVP caveats:
 
-Power BI is the primary BI deliverable. Next.js is a web demo/dashboard.
+- YouTube `reach` is treated as a views/impressions proxy, not unique reach.
+- YouTube share counts are unavailable, so `virality_score` is expected to be `0.0000%`.
+- Share of voice is reach-based for the scoped official-channel warehouse.
+- Sentiment is a lightweight Vietnamese rule fallback and should be presented as a directional BI signal.
 
-Power BI pages:
+## ETL Contract
 
-- Executive Overview
-- Content Performance
-- Sentiment Analysis
-- Competitor Benchmarking
+Final ETL must:
 
-Next.js pages:
+- Use YouTube official channel extraction through `channels.list -> uploads playlist -> playlistItems.list -> videos.list`.
+- Keep query-search extraction available only for probes or explicitly lower-confidence experiments.
+- Fail clearly when production YouTube config or API calls are unavailable.
+- Store raw JSONL data under `data/raw/`.
+- Write processed CSVs under `data/processed/`.
+- Load PostgreSQL via `python -m etl.cli`.
+- Record successful loads and maintenance cleanup in `social_dw.etl_runs`.
+- Run warehouse quality validation before exports are used for Power BI or screenshots.
 
-- `/dashboard`
-- `/content`
-- `/sentiment`
-- `/competitors`
-- `/posts`
-- `/data-health`
+Canonical production run:
 
-Next.js must consume the Django API backed by PostgreSQL as the runtime source of truth. Static JSON fallback data must not be used in the final dashboard.
+```powershell
+python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
+python -m etl.cli quality --database-url $env:DATABASE_URL
+python -m etl.cli export --database-url $env:DATABASE_URL
+```
 
-## 9. API Requirements
+## API Contract
 
-Django API is a read layer over warehouse views and processed data. It must not hold complex BI logic in views.
+Required endpoints:
 
-Minimum endpoints:
-
+- `GET /health/`
 - `GET /api/v1/posts/`
-- `GET /api/v1/posts/{id}/`
+- `GET /api/v1/posts/{post_id}/`
 - `GET /api/v1/analytics/overview/`
 - `GET /api/v1/analytics/engagement/`
 - `GET /api/v1/analytics/sentiment/`
@@ -139,65 +107,69 @@ Minimum endpoints:
 - `GET /api/v1/analytics/content-performance/`
 - `GET /api/v1/analytics/heatmap/`
 - `GET /api/v1/analytics/competitors/`
+- `GET /api/v1/analytics/insights/`
 - `GET /api/v1/sync/status/`
 
-## 10. Notebooks And Documentation
+API requirements:
 
-Required notebooks:
+- Return JSON with warehouse-backed data.
+- Sanitize warehouse errors to `{detail, source_type, error_code}`.
+- Keep internal exception details in server logs only.
+- Support bounded `limit` parameters on time series and post endpoints.
 
-- `01_data_quality_overview.ipynb`
-- `02_kpi_baseline.ipynb`
-- `03_content_performance_analysis.ipynb`
-- `04_posting_time_heatmap.ipynb`
-- `05_sentiment_brand_health.ipynb`
-- `06_share_of_voice_competitor.ipynb`
-- `07_executive_insights.ipynb`
+## Frontend Contract
 
-Required docs:
+The Next.js dashboard must:
 
-- `docs/Data_Dictionary.md`
-- `docs/ETL_Process.md`
-- `docs/Quality_Checks.md`
-- dashboard screenshots under `dashboard/screenshots/`
+- Use PostgreSQL-backed Django API data only.
+- Avoid runtime imports from `frontend/src/data/*.json`.
+- Provide pages for dashboard, content, sentiment, competitors, posts, and data health.
+- Provide loading and error states.
+- Support English/Vietnamese labels through the local i18n dictionary.
 
-## 11. Test And Acceptance Criteria
+## Validation Contract
 
-ETL tests:
+Required final checks:
 
-- Mock YouTube success, HTTP error, timeout, and pagination.
-- Missing credentials fail for production/demo YouTube runs.
-- Explicit fallback mode uses YouTube/F&B sample data for local tests.
-- Normalization handles timestamps, nulls, duplicates, and engagement formulas.
-- Load is idempotent.
+```powershell
+python -m pytest -q
+python backend\manage.py check
+cd frontend
+npm test -- --runInBand
+npm run build
+npm audit --omit=dev --audit-level=moderate
+cd ..
+python -m etl.cli quality --database-url $env:DATABASE_URL
+```
 
-Data quality:
+Current expected quality gate:
 
-- No duplicate natural keys.
-- No orphan fact rows.
-- Metrics are non-negative.
-- Sentiment labels and scores are valid.
-- Processed row counts reconcile with warehouse row counts.
+- 43 validation rows.
+- 26 PASS.
+- 17 INFO.
+- 0 FAIL.
 
-SQL validation:
+The validation SQL must check:
 
-- Each dashboard KPI has a validation query.
-- Validate row counts, foreign keys, trends, top content, and platform comparison.
+- Duplicate natural keys.
+- Orphan facts.
+- Non-negative metrics.
+- Generated KPI reconciliation.
+- Valid sentiment labels and scores.
+- YouTube-only platform scope.
+- Approved official-channel page scope.
 
-Smoke test:
+## Final Artifact Contract
 
-- `make demo` creates schema, runs real YouTube ETL, runs quality checks, writes processed CSVs, and exports dashboard-ready data.
+Required handoff artifacts:
 
-## 12. Agent Coordination Policy
-
-Agents are used only when their specialist scope is active:
-
-- `orchestrator`: scope and sequencing checks.
-- `analyst`: KPI, insights, and BI query meaning.
-- `data-engineer`: warehouse schema, SQL, data dictionary.
-- `etl-runner`: ETL, API extraction, sentiment, load.
-- `api-designer`: Django API contracts.
-- `devops`: Docker, environment, Makefile, CI.
-- `frontend-builder`: Next.js dashboard.
-- `test-writer`: tests and smoke validation.
-
-Do not spawn all agents at once. After each phase, update `STATUS.md`.
+- `README.md`
+- `STATUS.md`
+- `GUIDE.md`
+- `docs/BI_Insights.md`
+- `docs/SQL_Validation_Result.md`
+- `docs/Final_Checklist.md`
+- `dashboard/exports/*`
+- `dashboard/power_bi/README.md`
+- Final Power BI `.pbix` created manually in Power BI Desktop.
+- Refreshed screenshots after final warehouse/export refresh.

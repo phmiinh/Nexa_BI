@@ -1,0 +1,3 @@
+platform_name,content_type,is_competitor,post_count,total_reach,total_impressions,total_engagement,avg_engagement_rate,avg_virality_score
+youtube,video,False,123,160778238.0,160778238.0,10339.0,0.6512,0.0
+youtube,video,True,694,6288711.0,6288711.0,37986.0,2.1388,0.0

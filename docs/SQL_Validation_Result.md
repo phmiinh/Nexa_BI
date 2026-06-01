@@ -1,7 +1,7 @@
 # SocialLens BI SQL Validation Result
 
 Validated warehouse: `social_dw` on database `nexabi`
-Validated at: `2026-05-31` Asia/Ho_Chi_Minh
+Validated at: `2026-06-01` Asia/Ho_Chi_Minh
 Validation SQL: `warehouse/queries/dashboard_validation.sql`
 
 ## Execution
@@ -12,7 +12,7 @@ Validation was executed through:
 python -m etl.cli quality --database-url $env:DATABASE_URL
 ```
 
-Command result: `42` validation rows: `25 PASS`, `17 INFO`, `0 FAIL`.
+Command result: `43` validation rows: `26 PASS`, `17 INFO`, `0 FAIL`.
 
 ## Summary
 
@@ -25,6 +25,7 @@ Command result: `42` validation rows: `25 PASS`, `17 INFO`, `0 FAIL`.
 | Sentiment label and score validity | PASS |
 | Dashboard KPI reconciliation | PASS |
 | YouTube-only platform scope | PASS |
+| Approved official-channel scope | PASS |
 
 No validation blocker remains.
 
@@ -32,11 +33,14 @@ No validation blocker remains.
 
 | Object | Rows |
 | --- | ---: |
-| `dim_page` | 49 |
-| `fact_post` | 876 |
-| `fact_sentiment` | 1,692 |
-| `vw_post_performance` | 876 |
-| `vw_sentiment_trend` | 968 |
+| `dim_page` | 8 |
+| `fact_post` | 817 |
+| `fact_sentiment` | 1,526 |
+| `vw_post_performance` | 817 |
+| `vw_sentiment_trend` | 926 |
+| `vw_daily_engagement` | 568 |
+| `vw_competitor_benchmark` | 8 |
+| `vw_posting_time_heatmap` | 122 |
 | `vw_executive_overview` | 1 |
 
 ## Dashboard KPI Reconciliation
@@ -45,14 +49,14 @@ No validation blocker remains.
 
 | KPI | View |
 | --- | ---: |
-| `total_posts` | 876 |
-| `total_reach` | 167,400,096 |
-| `total_impressions` | 167,400,096 |
-| `total_engagement` | 53,845 |
-| `avg_engagement_rate` | 1.8806 |
+| `total_posts` | 817 |
+| `total_reach` | 167,066,949 |
+| `total_impressions` | 167,066,949 |
+| `total_engagement` | 48,325 |
+| `avg_engagement_rate` | 1.9164 |
 | `avg_virality_score` | 0.0000 |
 | `date_from` | 2017-09-26 |
-| `date_to` | 2026-05-31 |
+| `date_to` | 2026-05-26 |
 
 Status: PASS.
 
@@ -66,6 +70,21 @@ Status: PASS.
 | Invalid sentiment labels | PASS | 0 |
 | Sentiment scores outside [-1, 1] | PASS | 0 |
 | Non-YouTube fact rows | PASS | 0 |
+| Non-approved official channel fact rows | PASS | 0 |
+
+## Official-Only Cleanup
+
+On 2026-06-01, the warehouse was reconciled to the accepted official-channel batch from `data/processed`:
+
+| Cleanup item | Count |
+| --- | ---: |
+| Removed lower-confidence query residual posts | 59 |
+| Removed comments attached to those posts | 166 |
+| Removed orphan pages | 41 |
+| Retained official-channel posts | 817 |
+| Retained official-channel comments | 1,526 |
+
+The removed rows were archived under `data/processed_archive/`.
 
 ## Re-run Command
 

@@ -256,6 +256,36 @@ youtube_scope_checks AS (
     FROM fact_sentiment fs
     JOIN dim_platform dp ON dp.platform_id = fs.platform_id
     WHERE dp.platform_name <> 'youtube'
+),
+approved_youtube_pages AS (
+    SELECT *
+    FROM (
+        VALUES
+            ('UCHEqa2uTf8uXrGWrnU3ThgA'),
+            ('UCq6WR0wWNUuz53c4zeWSa8g'),
+            ('UCqSQSnkQ05fZaCdFMfnLaVw'),
+            ('UCPdzE8o7_ExH7Box2WPSEzw'),
+            ('UCBOjnWu1c_k2v0sEH_2foUg'),
+            ('UCAweoF7181qBWQcz0u8dNhQ'),
+            ('UCK8MrZ48N5EB6umonmj1g-A'),
+            ('UCHCrxNt9H3bDZegTdJznXtw')
+    ) AS pages(external_page_id)
+),
+official_page_scope_checks AS (
+    SELECT
+        'fact_post pages are approved official YouTube channels' AS check_name,
+        count(*)::bigint AS issue_count,
+        jsonb_build_object(
+            'non_official_rows', count(*),
+            'non_official_pages',
+            coalesce(jsonb_agg(DISTINCT dpg.page_name) FILTER (WHERE approved.external_page_id IS NULL), '[]'::jsonb)
+        ) AS details
+    FROM fact_post fp
+    JOIN dim_platform dp ON dp.platform_id = fp.platform_id
+    JOIN dim_page dpg ON dpg.page_id = fp.page_id
+    LEFT JOIN approved_youtube_pages approved ON approved.external_page_id = dpg.external_page_id
+    WHERE dp.platform_name = 'youtube'
+      AND approved.external_page_id IS NULL
 )
 SELECT
     (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::timestamp(0) AS validated_at_vn,
@@ -328,4 +358,13 @@ SELECT
     issue_count,
     details
 FROM youtube_scope_checks
+UNION ALL
+SELECT
+    (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::timestamp(0),
+    'official_page_scope',
+    check_name,
+    CASE WHEN issue_count = 0 THEN 'PASS' ELSE 'FAIL' END,
+    issue_count,
+    details
+FROM official_page_scope_checks
 ORDER BY check_group, check_name;
