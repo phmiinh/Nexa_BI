@@ -4,7 +4,6 @@ import csv
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 EXPORT_VIEWS = [
@@ -15,6 +14,13 @@ EXPORT_VIEWS = [
     "vw_competitor_benchmark",
     "vw_posting_time_heatmap",
     "vw_viral_posts",
+]
+
+BASE_ANALYTICAL_VIEWS = [
+    "vw_post_performance",
+    "vw_sentiment_daily",
+    "vw_platform_content_summary",
+    "vw_best_posting_heatmap",
 ]
 
 
@@ -70,3 +76,13 @@ def test_bi_insight_docs_and_notebook_guides_are_present():
     for path in required_artifacts:
         assert path.is_file(), f"missing final-delivery artifact: {path}"
         assert path.stat().st_size > 0, f"{path} must not be empty"
+
+
+def test_data_dictionary_documents_all_final_views():
+    dictionary = (ROOT / "docs" / "Data_Dictionary.md").read_text(encoding="utf-8")
+
+    for view in [*BASE_ANALYTICAL_VIEWS, *EXPORT_VIEWS]:
+        assert f"`{view}`" in dictionary, f"Data Dictionary must document {view}"
+
+    assert "reach-based" in dictionary
+    assert "YouTube views/impressions proxy" in dictionary

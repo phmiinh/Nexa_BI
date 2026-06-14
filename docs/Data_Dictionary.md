@@ -98,9 +98,26 @@ Comment sentiment fact table. Grain: one analyzed comment.
 
 ## Analytical Views
 
-| View | Purpose |
-| --- | --- |
-| `vw_post_performance` | Denormalized post performance for dashboard queries. |
-| `vw_sentiment_daily` | Daily sentiment rollup by platform and page. |
-| `vw_platform_content_summary` | Platform/content aggregate for executive cards. |
-| `vw_best_posting_heatmap` | Day/hour posting heatmap metrics. |
+Base views support the API, exports, and Power BI report. Final dashboard views listed in
+`SPEC.md` are the contract for the submitted BI handoff.
+
+| View | Grain | Purpose |
+| --- | --- | --- |
+| `vw_post_performance` | One row per post/video. | Denormalized post performance with page, platform, content type, engagement, virality, and per-post sentiment rollup. |
+| `vw_sentiment_daily` | Date + platform + page. | Daily sentiment rollup with positive, neutral, negative counts and sentiment percentages. |
+| `vw_platform_content_summary` | Platform + content type + competitor flag. | Content-format aggregate used by the final content performance view. |
+| `vw_best_posting_heatmap` | Day of week + hour + platform. | Posting-time performance aggregate used by the final heatmap view. |
+| `vw_executive_overview` | Single-row snapshot. | Executive KPI summary: total posts, reach/views proxy, impressions, engagement, average engagement rate, virality score, and date range. |
+| `vw_daily_engagement` | Date + platform. | Time-series source for reach, impressions, engagement, post count, engagement rate, and virality score. |
+| `vw_sentiment_trend` | Date + platform + page. | Final sentiment trend export; currently aliases `vw_sentiment_daily`. |
+| `vw_content_performance` | Platform + content type + competitor flag. | Final content performance export; currently aliases `vw_platform_content_summary`. |
+| `vw_competitor_benchmark` | Platform + page. | Competitor/brand benchmark with post count, reach, engagement, average engagement rate, reach-based share of voice, and sentiment ratio. |
+| `vw_posting_time_heatmap` | Day of week + hour + platform. | Final posting heatmap export; currently aliases `vw_best_posting_heatmap`. |
+| `vw_viral_posts` | One row per post/video. | Ranked post table for top-content analysis, ordered by virality score and engagement. |
+
+### Final View Notes
+
+- `reach` is a YouTube views/impressions proxy in the MVP, not unique account reach.
+- `share_of_voice` in `vw_competitor_benchmark` is reach-based within the approved official-channel scope.
+- `sentiment_ratio` is `positive_count / comment_count * 100` where comments are available.
+- YouTube share counts are unavailable in the current pipeline, so `virality_score` is expected to remain `0.0000%` for final data.

@@ -45,8 +45,9 @@ Cap nhat luc 2026-06-01. Pham vi phan tich: 2017-09-26 den 2026-05-26.
 - 1,526 comments duoc classify sentiment.
 - 351 positive, 1,148 neutral, 27 negative.
 - Positive ratio dat 23.00%, negative ratio dat 1.77%.
+- Mot so kenh co comment coverage rat thap do YouTube comments co the bi skip voi loi `403 Forbidden`: KOI The Vietnam co 0 comment, Gong Cha Vietnam co 4 comments, Starbucks Viet Nam co 1 comment.
 
-**Recommended action:** Theo doi negative ratio theo ngay va theo brand; uu tien CTA trong video de tang positive comments thay vi chi toi uu view.
+**Recommended action:** Theo doi negative ratio theo ngay va theo brand co mau comment du lon; khong dien giai sau sentiment cho cac kenh it comment. Uu tien CTA trong video de tang positive comments thay vi chi toi uu view.
 
 ## 5. Competitor va share of voice
 

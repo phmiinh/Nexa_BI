@@ -4,45 +4,49 @@ Use this checklist for the final SocialLens BI technical handoff.
 
 ## Environment
 
-- [ ] `.env` exists locally and is not committed.
-- [ ] `DATABASE_URL` points to the remote PostgreSQL database.
-- [ ] `SOCIALENS_DATABASE_URL` points to the same remote warehouse for the Django API.
-- [ ] `YOUTUBE_API_KEY` is set.
-- [ ] `YOUTUBE_CHANNEL_IDS` is set for the final official-channel YouTube scope.
-- [ ] `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` is set for the dashboard demo.
+- [x] `.env` exists locally and is not committed.
+- [x] `DATABASE_URL` points to the remote PostgreSQL database.
+- [x] `SOCIALENS_DATABASE_URL` points to the same remote warehouse for the Django API.
+- [x] `YOUTUBE_API_KEY` is set.
+- [x] `YOUTUBE_CHANNEL_IDS` is set for the final official-channel YouTube scope.
+- [x] `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000` is set for the dashboard demo.
 
 ## Final ETL
 
-- [ ] Ran real YouTube ETL:
+- [x] Ran real YouTube ETL:
 
 ```powershell
 python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 ```
 
-- [ ] Confirmed the run did not use sample data.
-- [ ] Confirmed PostgreSQL schema `social_dw` exists in the remote database.
-- [ ] Confirmed final warehouse views exist.
+- [x] Confirmed the run did not use sample data.
+- [x] Confirmed PostgreSQL schema `social_dw` exists in the remote database.
+- [x] Confirmed final warehouse views exist.
+
+Note: `etl_probe_extra_official` failed with YouTube `403 Forbidden` and is treated as an
+out-of-scope probe. The accepted final scope is the 8 approved official YouTube channels
+documented in `SPEC.md` and `STATUS.md`.
 
 ## Quality and Exports
 
-- [ ] Ran quality checks:
+- [x] Ran quality checks:
 
 ```powershell
 python -m etl.cli quality --database-url $env:DATABASE_URL
 ```
 
-- [ ] Exported dashboard views:
+- [x] Exported dashboard views:
 
 ```powershell
 python -m etl.cli export --database-url $env:DATABASE_URL
 ```
 
-- [ ] Confirmed CSV and JSON files exist in `dashboard/exports/`.
+- [x] Confirmed CSV and JSON files exist in `dashboard/exports/`.
 - [ ] Spot-checked exported metrics against Power BI visuals.
 
 ## API and Web Dashboard
 
-- [ ] Django check passes:
+- [x] Django check passes:
 
 ```powershell
 python backend\manage.py check
@@ -50,7 +54,7 @@ python backend\manage.py check
 
 - [ ] Django API is running at `http://localhost:8000`.
 - [ ] Health endpoint returns successfully: `http://localhost:8000/health/`.
-- [ ] Next.js dashboard builds successfully:
+- [x] Next.js dashboard builds successfully:
 
 ```powershell
 cd frontend
@@ -60,7 +64,7 @@ cd ..
 ```
 
 - [ ] Dashboard demo is running at `http://localhost:3000/dashboard`.
-- [ ] API-backed dashboard pages load from PostgreSQL with no static fallback data.
+- [x] API-backed dashboard pages load from PostgreSQL with no static fallback data.
 - [ ] Optional live YouTube contract test passes when quota/key are available:
 
 ```powershell
@@ -82,14 +86,18 @@ python -m pytest tests/test_youtube_live_contract.py -q
 - [ ] `.pbix` is saved under `dashboard/power_bi/`.
 - [ ] Screenshots are saved under `dashboard/screenshots/`.
 
+Power BI Desktop is required for the final `.pbix`; this environment cannot generate a
+valid report file automatically. Existing screenshots are web-dashboard evidence and should
+be refreshed after the final Power BI report is built.
+
 ## Submission Evidence
 
-- [ ] Terminal evidence for successful real YouTube ETL.
-- [ ] Terminal evidence for quality checks.
-- [ ] Refreshed files in `dashboard/exports/`.
+- [x] Terminal evidence for successful real YouTube ETL.
+- [x] Terminal evidence for quality checks.
+- [x] Refreshed files in `dashboard/exports/`.
 - [ ] Power BI `.pbix` file.
-- [ ] Dashboard screenshots.
+- [ ] Refreshed dashboard screenshots after final Power BI/web dashboard review.
 - [ ] Final API URL: `http://localhost:8000`.
 - [ ] Final dashboard URL: `http://localhost:3000/dashboard`.
-- [ ] Final run guide reviewed: `GUIDE.md`.
-- [ ] Power BI build specification reviewed: `dashboard/power_bi/README.md`.
+- [x] Final run guide reviewed: `GUIDE.md`.
+- [x] Power BI build specification reviewed: `dashboard/power_bi/README.md`.

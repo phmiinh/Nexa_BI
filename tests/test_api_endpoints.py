@@ -224,9 +224,12 @@ def test_posts_list_and_detail_use_warehouse(client: Client):
 
     assert response.status_code == 200
     payload = response.json()
+    assert set(payload) == {"count", "source", "results"}
     assert payload["source"] == "warehouse"
     assert payload["count"] == 1
-    assert {"post_id", "platform", "engagement_rate", "sentiment_ratio"}.issubset(payload["results"][0])
+    assert {"post_id", "platform", "engagement_rate", "sentiment_ratio"}.issubset(
+        payload["results"][0]
+    )
 
     detail = client.get(f"/api/v1/posts/{payload['results'][0]['post_id']}/")
 
@@ -240,6 +243,36 @@ def test_post_detail_returns_404_for_unknown_post(client: Client):
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Not found"}
+
+
+def test_posts_list_uses_lightweight_spec_shape_not_drf_pagination(client: Client):
+    response = client.get("/api/v1/posts/")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert {"count", "source", "results"}.issubset(payload)
+    assert "total_pages" not in payload
+    assert "next" not in payload
+    assert "previous" not in payload
+
+
+def test_analytics_collection_endpoints_use_source_results_shape(client: Client):
+    collection_paths = [
+        "/api/v1/analytics/engagement/",
+        "/api/v1/analytics/sentiment/",
+        "/api/v1/analytics/top-posts/",
+        "/api/v1/analytics/content-performance/",
+        "/api/v1/analytics/heatmap/",
+        "/api/v1/analytics/competitors/",
+    ]
+
+    for path in collection_paths:
+        response = client.get(path)
+        assert response.status_code == 200
+        payload = response.json()
+        assert set(payload) == {"source", "results"}
+        assert payload["source"] == "warehouse"
+        assert isinstance(payload["results"], list)
 
 
 @pytest.mark.parametrize(
@@ -287,7 +320,9 @@ def test_sync_status_includes_current_counts_platforms_and_confidence(client: Cl
     assert payload["source_confidence"]["level"] == "high"
 
 
-def test_api_returns_503_when_warehouse_is_unavailable(client: Client, monkeypatch: pytest.MonkeyPatch):
+def test_api_returns_503_when_warehouse_is_unavailable(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+):
     def raise_unavailable(_: Repository, __: str, ___: dict | None = None) -> pd.DataFrame:
         raise WarehouseUnavailable("database host secret detail")
 

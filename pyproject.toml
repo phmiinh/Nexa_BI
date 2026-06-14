@@ -12,6 +12,12 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = [
+    "--cov=etl",
+    "--cov=backend/sociallens_api",
+    "--cov-report=term-missing",
+    "--cov-fail-under=60",
+]
 markers = [
     "live_youtube: opt-in tests that call the real YouTube Data API",
 ]
