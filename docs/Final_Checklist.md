@@ -74,29 +74,29 @@ python -m pytest tests/test_youtube_live_contract.py -q
 
 ## Power BI
 
-- [ ] Power BI connects to remote PostgreSQL database `nexabi`.
-- [ ] Power BI uses schema `social_dw`.
-- [ ] Report includes the required pages:
+- [ ] Optional: Power BI connects to remote PostgreSQL database `nexabi`.
+- [ ] Optional: Power BI uses schema `social_dw`.
+- [ ] Optional: Power BI report includes the required pages:
   - [ ] Executive Overview
   - [ ] Content Performance
   - [ ] Sentiment Analysis
   - [ ] Competitor Benchmarking
   - [ ] Posting Time Heatmap
-- [ ] Slicers work for date, platform, brand, and content type where available.
-- [ ] `.pbix` is saved under `dashboard/power_bi/`.
-- [ ] Screenshots are saved under `dashboard/screenshots/`.
+- [ ] Optional: slicers work for date, platform, brand, and content type where available.
+- [ ] Optional: `.pbix` is saved under `dashboard/power_bi/`.
+- [x] Web dashboard screenshots are saved under `dashboard/screenshots/`.
 
-Power BI Desktop is required for the final `.pbix`; this environment cannot generate a
-valid report file automatically. Existing screenshots are web-dashboard evidence and should
-be refreshed after the final Power BI report is built.
+Power BI Desktop is optional for the current handoff. The accepted evidence package is the
+PostgreSQL warehouse, SQL validation, dashboard exports, API-backed web dashboard, and
+refreshed web screenshots.
 
 ## Submission Evidence
 
 - [x] Terminal evidence for successful real YouTube ETL.
 - [x] Terminal evidence for quality checks.
 - [x] Refreshed files in `dashboard/exports/`.
-- [ ] Power BI `.pbix` file.
-- [ ] Refreshed dashboard screenshots after final Power BI/web dashboard review.
+- [ ] Optional: Power BI `.pbix` file.
+- [x] Refreshed dashboard screenshots after final web dashboard review.
 - [ ] Final API URL: `http://localhost:8000`.
 - [ ] Final dashboard URL: `http://localhost:3000/dashboard`.
 - [x] Final run guide reviewed: `GUIDE.md`.

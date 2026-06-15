@@ -1,18 +1,37 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Python local environments and caches
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-.coverage
-coverage/
 .ruff_cache/
 .mypy_cache/
-.env
-.env.*
-!.env.example
+
+# Test and coverage output
+.coverage
+coverage/
+htmlcov/
+
+# Frontend dependencies and generated builds
 node_modules/
 .next/
 dist/
 build/
+
+# Runtime logs and process output
 logs/
 *.log
+
+# Heavy raw API payloads; processed/exported delivery data stays trackable.
 data/raw/**/*.jsonl
+
+# Final deliverables should remain commit-able.
+!REPORT.md
+!docs/**/*.md
+!dashboard/screenshots/**/*.png
+!dashboard/exports/**/*.csv
+!dashboard/exports/**/*.json
