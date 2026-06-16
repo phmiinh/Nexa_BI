@@ -1,146 +1,135 @@
 # SocialLens BI
 
-Hệ thống Business Intelligence phân tích hiệu quả truyền thông xã hội ngành F&B, lấy Highlands Coffee Vietnam làm thương hiệu trọng tâm và so sánh với các đối thủ trên YouTube official channels.
+<p align="center">
+  <strong>Business Intelligence system for F&amp;B social media analytics</strong><br>
+  Highlands Coffee Vietnam vs. selected competitors on official YouTube channels
+</p>
 
-## Tổng Quan
+<p align="center">
+  <a href="./Report%20Business%20Intelligence.pdf">
+    <img alt="Final report" src="https://img.shields.io/badge/Final_Report-PDF-B31B1B?style=for-the-badge&logo=adobeacrobatreader&logoColor=white">
+  </a>
+  <a href="https://github.com/phmiinh/Nexa_BI">
+    <img alt="Repository" src="https://img.shields.io/badge/GitHub-Nexa_BI-181717?style=for-the-badge&logo=github&logoColor=white">
+  </a>
+</p>
 
-SocialLens BI là bài tập lớn môn Business Intelligence với mục tiêu xây dựng một pipeline BI end-to-end từ dữ liệu thật đến dashboard và báo cáo. Hệ thống thu thập dữ liệu từ YouTube Data API v3, xử lý bằng Python ETL, nạp vào PostgreSQL warehouse schema `social_dw`, phục vụ dữ liệu qua Django API và hiển thị bằng Next.js web dashboard.
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-ETL-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Warehouse-4169E1?style=flat-square&logo=postgresql&logoColor=white">
+  <img alt="Django" src="https://img.shields.io/badge/Django-API-092E20?style=flat-square&logo=django&logoColor=white">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-Dashboard-000000?style=flat-square&logo=nextdotjs&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-Frontend-3178C6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="YouTube" src="https://img.shields.io/badge/YouTube-Data_API-FF0000?style=flat-square&logo=youtube&logoColor=white">
+</p>
 
-Phiên bản nộp cuối chọn phạm vi **YouTube official-channel only**. Quyết định này giúp dữ liệu sạch, có thể truy vết và tránh nhiễu từ search/query batch không chính thức. Power BI `.pbix` không bắt buộc trong bản nộp hiện tại; bằng chứng chính gồm warehouse, exports, API, web dashboard, screenshots và file báo cáo PDF.
+## Final Report
 
-## Artifact Nộp Bài
+The full submission report is available here:
 
-| Artifact | Mô tả |
-| --- | --- |
-| `Report Business Intelligence.pdf` | Báo cáo học thuật cuối kỳ |
-| `README.md` | Tổng quan hệ thống, cách vận hành và trạng thái cuối |
-| `dashboard/exports/` | CSV/JSON export từ 7 analytical views |
-| `backend/`, `etl/`, `warehouse/`, `frontend/` | Source code hệ thống BI |
-| `tests/` | Regression tests và contract checks |
+**[Open Report Business Intelligence.pdf](./Report%20Business%20Intelligence.pdf)**
 
-## Phạm Vi Phân Tích
+The PDF contains the final written report, dashboard screenshots, data warehouse explanation, validation summary, and BI insights.
 
-| Hạng mục | Giá trị |
-| --- | --- |
-| Thương hiệu chính | Highlands Coffee Vietnam |
-| Nền tảng | YouTube official channels |
-| Competitors | Trung Nguyên Legend, Phúc Long, Cộng Cà Phê, Cheese Coffee, KOI Thé Việt Nam, Gong Cha Vietnam, Starbucks Việt Nam |
-| Source of truth | PostgreSQL schema `social_dw` |
-| Runtime mock data | Không dùng mock/fallback JSON trong dashboard |
-| Kiểu cập nhật | Batch ETL, không realtime |
+## What This Project Does
 
-The Coffee House không có trong warehouse cuối vì chưa xác định được official YouTube channel ID đủ tin cậy. Đây là giới hạn có chủ đích để bảo vệ chất lượng benchmark.
+SocialLens BI turns real YouTube data from official F&B brand channels into a structured BI workflow. The project extracts video and comment data, cleans and models it into a PostgreSQL warehouse, exposes analytical views through a Django API, and presents the result in a Next.js dashboard.
 
-## Snapshot Dữ Liệu Cuối
+The final scope is intentionally focused on **official YouTube channels**. Broad query-search data was excluded because it introduced non-official pages and distorted reach-based benchmarking. The final submission prioritizes clean, explainable, and validated data over raw volume.
 
-Snapshot warehouse sau cleanup official-only:
+## Final Data Snapshot
 
-| Metric | Value |
+| Metric | Final value |
 | --- | ---: |
+| Official YouTube pages | 8 |
 | Fact posts | 817 |
-| Fact sentiment comments | 1,526 |
-| Active official pages | 8 |
-| Date range | 2017-09-26 đến 2026-05-26 |
+| Sentiment-classified comments | 1,526 |
+| Date range | 2017-09-26 to 2026-05-26 |
 | Total reach/views proxy | 167,066,949 |
 | Total engagement | 48,325 |
 | Average engagement rate | 1.9164% |
-| Average virality score | 0.0000% |
-| Quality gate | 26 PASS, 17 INFO, 0 FAIL |
+| Warehouse quality gate | 26 PASS, 17 INFO, 0 FAIL |
 
-Ghi chú:
+`reach` is a YouTube views/impressions proxy, not unique reach. `virality_score` is defined in the model but remains 0 in the final snapshot because YouTube Data API v3 does not expose share count through this pipeline.
 
-- `reach` là proxy từ YouTube views/impressions, không phải unique reach.
-- `virality_score` bằng 0 vì YouTube Data API v3 không cung cấp share count trong pipeline hiện tại.
-- Sentiment dùng lightweight Vietnamese rule-based fallback, phù hợp làm tín hiệu định hướng, không phải NLP benchmark đã validate bằng human labels.
+## BI Questions
 
-## Câu Hỏi BI Chính
+The project is built around three practical business questions:
 
-1. Nội dung nào hiệu quả nhất cho Highlands Coffee và các đối thủ trên YouTube?
-2. Khán giả phản hồi ra sao qua phân bố sentiment trong bình luận?
-3. Highlands đang đứng ở đâu so với đối thủ về reach, engagement, engagement rate và share of voice?
+1. Which content performs best for Highlands Coffee and competing F&B brands?
+2. How are audiences responding through comment sentiment?
+3. Where does Highlands stand against competitors in reach, engagement, engagement rate, and share of voice?
 
-## KPI Chính
+## Main Findings
 
-| KPI | Công thức | Ý nghĩa |
-| --- | --- | --- |
-| `engagement_count` | `likes + comments + shares + saves` | Tổng tương tác khả dụng |
-| `engagement_rate` | `engagement_count / reach * 100` | Chuẩn hóa engagement theo quy mô views/reach |
-| `virality_score` | `shares / reach * 100` | Thiết kế sẵn cho share data, hiện bằng 0 |
-| `sentiment_ratio` | `positive_comments / total_comments * 100` | Tín hiệu sức khỏe cảm xúc qua comments |
-| `share_of_voice` | `page reach / total scoped reach * 100` | Reach-based SOV trong official-channel scope |
+Highlands Coffee dominates reach in the official YouTube dataset, accounting for **96.24% reach-based share of voice**. That does not mean Highlands is the strongest brand on every metric: Trung Nguyên Legend leads in posting cadence, engagement volume, and comment coverage with **600/817 posts** and **1,258/1,526 comments**.
 
-## Kiến Trúc Hệ Thống
+The most useful contrast in the project is therefore not "who has the most views", but how awareness and engagement tell different stories. Highlands is strong in reach; Trung Nguyên Legend is the stronger benchmark for consistent content activity and discussion.
+
+Sentiment is broadly safe, with low negative volume, but it is not strongly positive. Most comments are neutral, which matters in F&B because beverage content should ideally trigger appetite, routine, store experience, memory, or personal moments rather than only informational reactions.
+
+## System Flow
 
 ```text
 YouTube Data API v3
         |
         v
-Python ETL: extract -> raw JSONL -> normalize -> sentiment -> quality -> load
+Python ETL
+extract -> raw JSONL -> normalize -> sentiment -> quality -> load
         |
         v
-PostgreSQL Warehouse: social_dw
+PostgreSQL warehouse: social_dw
         |
-        +--> Analytical Views -> dashboard/exports CSV/JSON
+        +--> Analytical views -> CSV/JSON exports
         |
-        +--> Django API -> Next.js Web Dashboard
+        +--> Django API -> Next.js dashboard
 ```
 
-## Data Warehouse
+The dashboard reads from the API and warehouse. It does not use static mock JSON as a runtime fallback.
 
-Warehouse dùng star schema trong PostgreSQL:
+## Warehouse Model
 
-| Loại | Bảng/View | Grain/Vai trò |
-| --- | --- | --- |
-| Dimension | `dim_time` | Thời gian phân tích theo ngày, giờ, tuần, tháng |
-| Dimension | `dim_platform` | Platform lookup, final data là YouTube |
-| Dimension | `dim_content_type` | Content type lookup |
-| Dimension | `dim_page` | Brand/channel/competitor lookup |
-| Fact | `fact_post` | Một YouTube video/post |
-| Fact | `fact_sentiment` | Một comment đã phân loại sentiment |
-| Audit | `etl_runs` | Lịch sử batch ETL và sync status |
+The warehouse uses a star schema to keep BI queries simple and explainable.
 
-7 analytical views phục vụ dashboard và exports:
-
-| View | Mục đích |
+| Layer | Objects |
 | --- | --- |
-| `vw_executive_overview` | KPI tổng quan |
-| `vw_daily_engagement` | Time series reach/engagement |
-| `vw_sentiment_trend` | Xu hướng sentiment |
-| `vw_content_performance` | Hiệu suất theo content type |
-| `vw_competitor_benchmark` | Benchmark giữa các thương hiệu |
-| `vw_posting_time_heatmap` | Heatmap ngày/giờ đăng |
-| `vw_viral_posts` | Top videos/posts |
+| Dimensions | `dim_time`, `dim_platform`, `dim_content_type`, `dim_page` |
+| Facts | `fact_post`, `fact_sentiment` |
+| Audit | `etl_runs` |
+| Analytical views | `vw_executive_overview`, `vw_daily_engagement`, `vw_sentiment_trend`, `vw_content_performance`, `vw_competitor_benchmark`, `vw_posting_time_heatmap`, `vw_viral_posts` |
 
-## Backend API
+## Run Locally
 
-Chạy Django API:
+Create `.env` from `.env.example`, then set the database URL and YouTube API values:
+
+```env
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/nexabi
+SOCIALENS_DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/nexabi
+YOUTUBE_API_KEY=...
+YOUTUBE_CHANNEL_IDS=...
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
+Install dependencies:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+
+cd frontend
+npm install
+cd ..
+```
+
+Run the API:
 
 ```powershell
 python backend\manage.py runserver 127.0.0.1:8000
 ```
 
-Endpoints chính:
-
-```text
-GET /health/
-GET /api/v1/posts/
-GET /api/v1/posts/{post_id}/
-GET /api/v1/analytics/overview/
-GET /api/v1/analytics/engagement/
-GET /api/v1/analytics/sentiment/
-GET /api/v1/analytics/top-posts/
-GET /api/v1/analytics/content-performance/
-GET /api/v1/analytics/heatmap/
-GET /api/v1/analytics/competitors/
-GET /api/v1/analytics/insights/
-GET /api/v1/sync/status/
-```
-
-API trả dữ liệu từ PostgreSQL warehouse. Khi database lỗi, response được sanitize để không lộ connection string hoặc stack trace.
-
-## Web Dashboard
-
-Chạy dashboard:
+Run the dashboard:
 
 ```powershell
 cd frontend
@@ -148,129 +137,56 @@ $env:NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
 npm run dev
 ```
 
-Routes chính:
+Open:
 
 ```text
 http://localhost:3000/dashboard
-http://localhost:3000/content
-http://localhost:3000/sentiment
-http://localhost:3000/competitors
-http://localhost:3000/posts
-http://localhost:3000/data-health
 ```
 
-Dashboard screenshots đã được nhúng trực tiếp trong `Report Business Intelligence.pdf`. Các file ảnh screenshot sinh ra cục bộ không được track trong Git để giữ repository gọn.
+## ETL And Validation
 
-## Cài Đặt Môi Trường
-
-Tạo `.env` từ `.env.example`:
-
-```env
-DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/nexabi
-SOCIALENS_DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/nexabi
-YOUTUBE_API_KEY=...
-YOUTUBE_CHANNEL_IDS=...
-YOUTUBE_QUERIES=
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-```
-
-Load `.env` trong PowerShell:
-
-```powershell
-Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } | ForEach-Object {
-  $name, $value = $_ -split '=', 2
-  Set-Item -Path "Env:$name" -Value $value
-}
-```
-
-Cài Python dependencies:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
-```
-
-Cài frontend dependencies:
-
-```powershell
-cd frontend
-npm install
-cd ..
-```
-
-## Vận Hành ETL
-
-Chạy official-channel ETL khi có YouTube API key/quota:
+Run official-channel ETL when YouTube API key/quota is available:
 
 ```powershell
 python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 ```
 
-Chạy quality gate:
+Validate and export:
 
 ```powershell
 python -m etl.cli quality --database-url $env:DATABASE_URL
-```
-
-Export warehouse views:
-
-```powershell
 python -m etl.cli export --database-url $env:DATABASE_URL
 ```
 
-## Kiểm Thử
+Final verification results:
 
-Kết quả kiểm thử cuối:
+| Check | Result |
+| --- | --- |
+| Python regression tests | 59 passed, 1 skipped |
+| Python coverage | 70.59% |
+| Django check | Pass |
+| Frontend tests | 7 passed |
+| Frontend lint/build | Pass |
+| Production npm audit | 0 vulnerabilities |
+| Warehouse quality | 26 PASS, 17 INFO, 0 FAIL |
 
-| Hạng mục | Lệnh | Kết quả |
-| --- | --- | --- |
-| Python regression + coverage | `python -m pytest -q` | 59 passed, 1 skipped, coverage 70.59% |
-| Django config | `python backend\manage.py check` | Pass |
-| Warehouse quality | `python -m etl.cli quality --database-url $env:DATABASE_URL` | 26 PASS, 17 INFO, 0 FAIL |
-| Frontend tests | `npm test -- --runInBand` | 7 passed |
-| Frontend build | `npm run build` | Pass |
-| Frontend lint | `npm run lint` | Pass |
-| Production audit | `npm audit --omit=dev --audit-level=moderate` | 0 vulnerabilities |
-
-Optional live YouTube contract test:
-
-```powershell
-$env:RUN_YOUTUBE_LIVE_TESTS="1"
-python -m pytest tests/test_youtube_live_contract.py -q
-```
-
-Test này được skip khi không có YouTube API key/quota.
-
-## Insight Chính
-
-- Highlands Coffee chiếm 96.24% reach-based share of voice trong tập official YouTube channels, nhưng engagement rate thấp hơn Trung Nguyên Legend.
-- Trung Nguyên Legend là benchmark tốt nhất về cadence và comment coverage với 600/817 posts và 1,258/1,526 comments.
-- Sentiment tổng thể an toàn: 351 positive, 1,148 neutral, 27 negative; tuy nhiên neutral chiếm đa số nên không nên diễn giải thành brand love mạnh.
-- Posting heatmap nên được đọc theo cả volume và efficiency; slot có engagement rate cao nhưng sample quá nhỏ chỉ nên dùng làm giả thuyết thử nghiệm.
-- Data quality là một kết quả quan trọng của dự án: batch query-search nhiễu đã bị loại, warehouse final đạt 0 FAIL.
-
-## Hạn Chế
-
-- Kết luận chỉ áp dụng cho YouTube official channels, không đại diện toàn bộ social footprint của ngành F&B.
-- Không có unique reach, watch time, subscriber gain hoặc CTR vì pipeline dùng YouTube Data API v3, không dùng YouTube Analytics API nội bộ.
-- `virality_score` chưa có giá trị phân tích vì thiếu share count.
-- Sentiment là rule-based directional signal, chưa phải mô hình PhoBERT/ViSoBERT có validation set.
-- Không có `.pbix` bắt buộc; dashboard web và báo cáo PDF là artifact trình bày chính trong bản nộp này.
-
-## Cấu Trúc Repo
+## Repository Map
 
 ```text
 backend/                 Django API
 etl/                     Python ETL package and CLI
-warehouse/schema/        PostgreSQL schema, indexes, views
-warehouse/queries/       Validation and analytical SQL
-frontend/                Next.js web dashboard
-dashboard/exports/       CSV/JSON exports from warehouse views
-data/processed/          Processed post/comment CSV snapshots
+warehouse/               PostgreSQL schema, indexes, views, validation SQL
+frontend/                Next.js dashboard
+dashboard/exports/       CSV/JSON exports from final analytical views
+data/processed/          Processed post/comment snapshots
 tests/                   Regression and contract tests
 ```
+
+## Scope Notes
+
+The final report represents official YouTube channel performance only. It does not claim to measure the entire social media footprint of the F&B market. Facebook, TikTok, Instagram, earned media, KOL content, and private YouTube Analytics metrics remain outside the current scope.
+
+The Coffee House is not included in the final clean warehouse because a reliable official YouTube channel ID was not verified. Sentiment analysis is rule-based and should be read as a directional signal rather than a manually validated NLP benchmark.
 
 ## License
 
