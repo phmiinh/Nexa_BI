@@ -1,87 +1,169 @@
 # SocialLens BI
 
-Business Intelligence capstone for F&B social media analytics.
+Hệ thống Business Intelligence phân tích hiệu quả truyền thông xã hội ngành F&B, lấy Highlands Coffee Vietnam làm thương hiệu trọng tâm và so sánh với các đối thủ trên YouTube official channels.
 
-Current implementation is a YouTube-only BI workflow for Highlands Coffee and selected F&B competitors. The runtime source of truth is the PostgreSQL warehouse schema `social_dw`; the Next.js dashboard and Django API read from PostgreSQL, not from mock JSON files.
+## Tổng Quan
 
-## Current Status
+SocialLens BI là bài tập lớn môn Business Intelligence với mục tiêu xây dựng một pipeline BI end-to-end từ dữ liệu thật đến dashboard và báo cáo. Hệ thống thu thập dữ liệu từ YouTube Data API v3, xử lý bằng Python ETL, nạp vào PostgreSQL warehouse schema `social_dw`, phục vụ dữ liệu qua Django API và hiển thị bằng Next.js web dashboard.
 
-Last reviewed: 2026-06-01 Asia/Ho_Chi_Minh.
+Phiên bản nộp cuối chọn phạm vi **YouTube official-channel only**. Quyết định này giúp dữ liệu sạch, có thể truy vết và tránh nhiễu từ search/query batch không chính thức. Power BI `.pbix` không bắt buộc trong bản nộp hiện tại; bằng chứng chính gồm warehouse, exports, API, web dashboard, screenshots và file báo cáo PDF.
 
-| Area | Status |
+## Artifact Nộp Bài
+
+| Artifact | Mô tả |
 | --- | --- |
-| Scope | F&B, YouTube official channels only |
-| Primary brand | Highlands Coffee Vietnam |
-| Competitor set | Trung Nguyen Legend, Phuc Long, Cong Caphe, Cheese Coffee, KOI The Vietnam, Gong Cha Vietnam, Starbucks Vietnam |
-| Source of truth | PostgreSQL `social_dw` |
-| Runtime mock fallback | Removed |
-| Data quality gate | `26 PASS`, `17 INFO`, `0 FAIL` |
-| Power BI `.pbix` | Manual artifact, build from `dashboard/power_bi/README.md` |
+| `Report Business Intelligence.pdf` | Báo cáo học thuật cuối kỳ |
+| `README.md` | Tổng quan hệ thống, cách vận hành và trạng thái cuối |
+| `dashboard/exports/` | CSV/JSON export từ 7 analytical views |
+| `backend/`, `etl/`, `warehouse/`, `frontend/` | Source code hệ thống BI |
+| `tests/` | Regression tests và contract checks |
 
-Final warehouse snapshot after official-only cleanup:
+## Phạm Vi Phân Tích
+
+| Hạng mục | Giá trị |
+| --- | --- |
+| Thương hiệu chính | Highlands Coffee Vietnam |
+| Nền tảng | YouTube official channels |
+| Competitors | Trung Nguyên Legend, Phúc Long, Cộng Cà Phê, Cheese Coffee, KOI Thé Việt Nam, Gong Cha Vietnam, Starbucks Việt Nam |
+| Source of truth | PostgreSQL schema `social_dw` |
+| Runtime mock data | Không dùng mock/fallback JSON trong dashboard |
+| Kiểu cập nhật | Batch ETL, không realtime |
+
+The Coffee House không có trong warehouse cuối vì chưa xác định được official YouTube channel ID đủ tin cậy. Đây là giới hạn có chủ đích để bảo vệ chất lượng benchmark.
+
+## Snapshot Dữ Liệu Cuối
+
+Snapshot warehouse sau cleanup official-only:
 
 | Metric | Value |
 | --- | ---: |
 | Fact posts | 817 |
 | Fact sentiment comments | 1,526 |
-| Pages in active BI views | 8 |
-| Date from | 2017-09-26 |
-| Date to | 2026-05-26 |
-| Total reach / views proxy | 167,066,949 |
+| Active official pages | 8 |
+| Date range | 2017-09-26 đến 2026-05-26 |
+| Total reach/views proxy | 167,066,949 |
 | Total engagement | 48,325 |
 | Average engagement rate | 1.9164% |
 | Average virality score | 0.0000% |
+| Quality gate | 26 PASS, 17 INFO, 0 FAIL |
 
-Notes:
+Ghi chú:
 
-- `reach` is a YouTube views/impressions proxy, not unique reach.
-- `virality_score` is currently 0 because YouTube does not expose share counts through this pipeline.
-- Broad curated query data was rejected due noise. A cleanup on 2026-06-01 removed 59 lower-confidence query residual posts, 166 comments, and 41 orphan pages. The removed rows are archived under `data/processed_archive/`.
+- `reach` là proxy từ YouTube views/impressions, không phải unique reach.
+- `virality_score` bằng 0 vì YouTube Data API v3 không cung cấp share count trong pipeline hiện tại.
+- Sentiment dùng lightweight Vietnamese rule-based fallback, phù hợp làm tín hiệu định hướng, không phải NLP benchmark đã validate bằng human labels.
 
-## Architecture
+## Câu Hỏi BI Chính
+
+1. Nội dung nào hiệu quả nhất cho Highlands Coffee và các đối thủ trên YouTube?
+2. Khán giả phản hồi ra sao qua phân bố sentiment trong bình luận?
+3. Highlands đang đứng ở đâu so với đối thủ về reach, engagement, engagement rate và share of voice?
+
+## KPI Chính
+
+| KPI | Công thức | Ý nghĩa |
+| --- | --- | --- |
+| `engagement_count` | `likes + comments + shares + saves` | Tổng tương tác khả dụng |
+| `engagement_rate` | `engagement_count / reach * 100` | Chuẩn hóa engagement theo quy mô views/reach |
+| `virality_score` | `shares / reach * 100` | Thiết kế sẵn cho share data, hiện bằng 0 |
+| `sentiment_ratio` | `positive_comments / total_comments * 100` | Tín hiệu sức khỏe cảm xúc qua comments |
+| `share_of_voice` | `page reach / total scoped reach * 100` | Reach-based SOV trong official-channel scope |
+
+## Kiến Trúc Hệ Thống
 
 ```text
 YouTube Data API v3
         |
         v
-Python ETL: extract -> normalize -> sentiment -> quality -> load
+Python ETL: extract -> raw JSONL -> normalize -> sentiment -> quality -> load
         |
         v
-PostgreSQL warehouse: social_dw dimensions, facts, analytical views
+PostgreSQL Warehouse: social_dw
         |
-        +--> Django API: backend/sociallens_api
+        +--> Analytical Views -> dashboard/exports CSV/JSON
         |
-        +--> dashboard/exports CSV/JSON
-        |
-        +--> Next.js dashboard and Power BI
+        +--> Django API -> Next.js Web Dashboard
 ```
 
-Implementation deviations from the planning docs:
+## Data Warehouse
 
-- `ROADMAP.md` and `DESIGN.md` describe the broader target architecture. The delivered MVP intentionally narrows runtime ingestion to YouTube official channels.
-- The backend uses lightweight Django `JsonResponse` views, not DRF/Celery.
-- The frontend uses Next.js App Router with plain CSS components, not Tailwind/Recharts.
-- Sample data remains available for dev/test only; it is not a final runtime fallback.
+Warehouse dùng star schema trong PostgreSQL:
 
-## Repository Layout
+| Loại | Bảng/View | Grain/Vai trò |
+| --- | --- | --- |
+| Dimension | `dim_time` | Thời gian phân tích theo ngày, giờ, tuần, tháng |
+| Dimension | `dim_platform` | Platform lookup, final data là YouTube |
+| Dimension | `dim_content_type` | Content type lookup |
+| Dimension | `dim_page` | Brand/channel/competitor lookup |
+| Fact | `fact_post` | Một YouTube video/post |
+| Fact | `fact_sentiment` | Một comment đã phân loại sentiment |
+| Audit | `etl_runs` | Lịch sử batch ETL và sync status |
+
+7 analytical views phục vụ dashboard và exports:
+
+| View | Mục đích |
+| --- | --- |
+| `vw_executive_overview` | KPI tổng quan |
+| `vw_daily_engagement` | Time series reach/engagement |
+| `vw_sentiment_trend` | Xu hướng sentiment |
+| `vw_content_performance` | Hiệu suất theo content type |
+| `vw_competitor_benchmark` | Benchmark giữa các thương hiệu |
+| `vw_posting_time_heatmap` | Heatmap ngày/giờ đăng |
+| `vw_viral_posts` | Top videos/posts |
+
+## Backend API
+
+Chạy Django API:
+
+```powershell
+python backend\manage.py runserver 127.0.0.1:8000
+```
+
+Endpoints chính:
 
 ```text
-backend/sociallens_api/       Django API backed by PostgreSQL views
-etl/                          Python ETL package and CLI
-warehouse/schema/             PostgreSQL schema, indexes, analytical views
-warehouse/queries/            Validation SQL
-frontend/                     Next.js web dashboard
-dashboard/exports/            CSV/JSON exports generated from warehouse views
-dashboard/power_bi/           Power BI build guide and final .pbix location
-dashboard/screenshots/        Dashboard evidence screenshots
-docs/                         BI insights, SQL validation, final checklist
-notebooks/                    BI analysis notebooks
-tests/                        Python regression tests and contract checks
+GET /health/
+GET /api/v1/posts/
+GET /api/v1/posts/{post_id}/
+GET /api/v1/analytics/overview/
+GET /api/v1/analytics/engagement/
+GET /api/v1/analytics/sentiment/
+GET /api/v1/analytics/top-posts/
+GET /api/v1/analytics/content-performance/
+GET /api/v1/analytics/heatmap/
+GET /api/v1/analytics/competitors/
+GET /api/v1/analytics/insights/
+GET /api/v1/sync/status/
 ```
 
-## Environment
+API trả dữ liệu từ PostgreSQL warehouse. Khi database lỗi, response được sanitize để không lộ connection string hoặc stack trace.
 
-Create `.env` from `.env.example` and set local values:
+## Web Dashboard
+
+Chạy dashboard:
+
+```powershell
+cd frontend
+$env:NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
+npm run dev
+```
+
+Routes chính:
+
+```text
+http://localhost:3000/dashboard
+http://localhost:3000/content
+http://localhost:3000/sentiment
+http://localhost:3000/competitors
+http://localhost:3000/posts
+http://localhost:3000/data-health
+```
+
+Dashboard screenshots đã được nhúng trực tiếp trong `Report Business Intelligence.pdf`. Các file ảnh screenshot sinh ra cục bộ không được track trong Git để giữ repository gọn.
+
+## Cài Đặt Môi Trường
+
+Tạo `.env` từ `.env.example`:
 
 ```env
 DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:5432/nexabi
@@ -92,9 +174,7 @@ YOUTUBE_QUERIES=
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
-Do not commit `.env` or secrets.
-
-Load `.env` into PowerShell before manual commands:
+Load `.env` trong PowerShell:
 
 ```powershell
 Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } | ForEach-Object {
@@ -103,9 +183,7 @@ Get-Content .env | Where-Object { $_ -match '^[A-Za-z_][A-Za-z0-9_]*=' } | ForEa
 }
 ```
 
-## Setup
-
-Python:
+Cài Python dependencies:
 
 ```powershell
 python -m venv .venv
@@ -114,7 +192,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
 ```
 
-Frontend:
+Cài frontend dependencies:
 
 ```powershell
 cd frontend
@@ -122,15 +200,15 @@ npm install
 cd ..
 ```
 
-## ETL and Warehouse
+## Vận Hành ETL
 
-Run the official-channel ETL when the YouTube API key/quota is available:
+Chạy official-channel ETL khi có YouTube API key/quota:
 
 ```powershell
 python -m etl.cli run --sources youtube --channel-ids $env:YOUTUBE_CHANNEL_IDS --queries= --limit 50 --comments-limit 100 --max-search-pages 12 --database-url $env:DATABASE_URL
 ```
 
-Quality gate:
+Chạy quality gate:
 
 ```powershell
 python -m etl.cli quality --database-url $env:DATABASE_URL
@@ -142,107 +220,19 @@ Export warehouse views:
 python -m etl.cli export --database-url $env:DATABASE_URL
 ```
 
-Make shortcuts, if `make` is available:
+## Kiểm Thử
 
-```powershell
-make etl
-make quality
-make export
-make demo
-```
+Kết quả kiểm thử cuối:
 
-## API
-
-Run Django:
-
-```powershell
-python backend\manage.py runserver 127.0.0.1:8000
-```
-
-Key endpoints:
-
-```text
-GET /health/
-GET /api/v1/posts/
-GET /api/v1/posts/{post_id}/
-GET /api/v1/analytics/overview/
-GET /api/v1/analytics/engagement/?limit=120
-GET /api/v1/analytics/sentiment/?limit=120
-GET /api/v1/analytics/top-posts/
-GET /api/v1/analytics/content-performance/
-GET /api/v1/analytics/heatmap/
-GET /api/v1/analytics/competitors/
-GET /api/v1/analytics/insights/
-GET /api/v1/sync/status/
-```
-
-Warehouse errors are sanitized for clients; internal exception details are logged server-side.
-
-## Web Dashboard
-
-Run the Next.js dashboard:
-
-```powershell
-cd frontend
-$env:NEXT_PUBLIC_API_BASE_URL="http://localhost:8000"
-npm run dev
-```
-
-Routes:
-
-```text
-http://localhost:3000/dashboard
-http://localhost:3000/content
-http://localhost:3000/sentiment
-http://localhost:3000/competitors
-http://localhost:3000/posts
-http://localhost:3000/data-health
-```
-
-The frontend uses API data only. Static mock JSON under `frontend/src/data` was removed and is guarded by tests.
-
-## Power BI
-
-Power BI is the primary submission dashboard artifact.
-
-Preferred connection:
-
-- PostgreSQL database `nexabi`
-- Schema `social_dw`
-- Views documented in `dashboard/power_bi/README.md`
-
-Backup source:
-
-- CSV files in `dashboard/exports/`
-
-Expected manual artifact:
-
-- Save the final `.pbix` under `dashboard/power_bi/`.
-- Refresh screenshots under `dashboard/screenshots/` after the final warehouse/export refresh.
-
-## Validation
-
-Current regression suite:
-
-```powershell
-python -m pytest -q
-python backend\manage.py check
-cd frontend
-npm test -- --runInBand
-npm run build
-npm audit --omit=dev --audit-level=moderate
-cd ..
-python -m etl.cli quality --database-url $env:DATABASE_URL
-```
-
-Expected current results:
-
-- Python tests: `56 passed, 1 skipped`.
-- Frontend tests: `7 passed`.
-- Django check: no issues.
-- Next.js build: pass.
-- Production npm audit: `0 vulnerabilities`.
-- Warehouse quality: `26 PASS`, `17 INFO`, `0 FAIL`.
+| Hạng mục | Lệnh | Kết quả |
+| --- | --- | --- |
+| Python regression + coverage | `python -m pytest -q` | 59 passed, 1 skipped, coverage 70.59% |
+| Django config | `python backend\manage.py check` | Pass |
+| Warehouse quality | `python -m etl.cli quality --database-url $env:DATABASE_URL` | 26 PASS, 17 INFO, 0 FAIL |
+| Frontend tests | `npm test -- --runInBand` | 7 passed |
+| Frontend build | `npm run build` | Pass |
+| Frontend lint | `npm run lint` | Pass |
+| Production audit | `npm audit --omit=dev --audit-level=moderate` | 0 vulnerabilities |
 
 Optional live YouTube contract test:
 
@@ -251,24 +241,36 @@ $env:RUN_YOUTUBE_LIVE_TESTS="1"
 python -m pytest tests/test_youtube_live_contract.py -q
 ```
 
-This test is skipped when the YouTube key/quota is not available.
+Test này được skip khi không có YouTube API key/quota.
 
-## BI Deliverables
+## Insight Chính
 
-- `docs/BI_Insights.md`: Vietnamese BI insight summary.
-- `docs/SQL_Validation_Result.md`: warehouse validation result.
-- `dashboard/exports/`: latest warehouse exports.
-- `dashboard/power_bi/README.md`: Power BI build specification.
-- `docs/Final_Checklist.md`: final handoff checklist.
-- `STATUS.md`: current implementation status and known limitations.
+- Highlands Coffee chiếm 96.24% reach-based share of voice trong tập official YouTube channels, nhưng engagement rate thấp hơn Trung Nguyên Legend.
+- Trung Nguyên Legend là benchmark tốt nhất về cadence và comment coverage với 600/817 posts và 1,258/1,526 comments.
+- Sentiment tổng thể an toàn: 351 positive, 1,148 neutral, 27 negative; tuy nhiên neutral chiếm đa số nên không nên diễn giải thành brand love mạnh.
+- Posting heatmap nên được đọc theo cả volume và efficiency; slot có engagement rate cao nhưng sample quá nhỏ chỉ nên dùng làm giả thuyết thử nghiệm.
+- Data quality là một kết quả quan trọng của dự án: batch query-search nhiễu đã bị loại, warehouse final đạt 0 FAIL.
 
-## Known Limitations
+## Hạn Chế
 
-- The current production warehouse is YouTube-only.
-- The Coffee House official YouTube channel was not reliably identified, so it is not included in the cleaned official-channel warehouse.
-- Sentiment uses a lightweight Vietnamese keyword/rule fallback and should be presented as a directional signal, not a manually validated NLP benchmark.
-- Forecasting, clustering, demographic analysis, and follower growth from the original roadmap are not productionized in this MVP.
-- Power BI `.pbix` generation is manual because Power BI Desktop automation is not available in this environment.
+- Kết luận chỉ áp dụng cho YouTube official channels, không đại diện toàn bộ social footprint của ngành F&B.
+- Không có unique reach, watch time, subscriber gain hoặc CTR vì pipeline dùng YouTube Data API v3, không dùng YouTube Analytics API nội bộ.
+- `virality_score` chưa có giá trị phân tích vì thiếu share count.
+- Sentiment là rule-based directional signal, chưa phải mô hình PhoBERT/ViSoBERT có validation set.
+- Không có `.pbix` bắt buộc; dashboard web và báo cáo PDF là artifact trình bày chính trong bản nộp này.
+
+## Cấu Trúc Repo
+
+```text
+backend/                 Django API
+etl/                     Python ETL package and CLI
+warehouse/schema/        PostgreSQL schema, indexes, views
+warehouse/queries/       Validation and analytical SQL
+frontend/                Next.js web dashboard
+dashboard/exports/       CSV/JSON exports from warehouse views
+data/processed/          Processed post/comment CSV snapshots
+tests/                   Regression and contract tests
+```
 
 ## License
 

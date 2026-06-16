@@ -10,6 +10,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.cache/
+*.cache
 
 # Test and coverage output
 .coverage
@@ -25,13 +27,33 @@ build/
 # Runtime logs and process output
 logs/
 *.log
+*.err
+*.out
+*.tmp
+*.bak
+
+# Local text extracts and scratch notes
+*.txt
+!requirements.txt
+!requirements-dev.txt
 
 # Heavy raw API payloads; processed/exported delivery data stays trackable.
 data/raw/**/*.jsonl
 
-# Final deliverables should remain commit-able.
-!REPORT.md
-!docs/**/*.md
-!dashboard/screenshots/**/*.png
+# Local Codex workspace artifacts
+.codex/
+
+# Generated dashboard screenshots are embedded in the final PDF report.
+dashboard/screenshots/
+
+# Notebook/editor generated state
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# OS/editor metadata
+.DS_Store
+Thumbs.db
+
+# Final data exports remain commit-able.
 !dashboard/exports/**/*.csv
 !dashboard/exports/**/*.json
